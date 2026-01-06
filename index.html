@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office 萬用小工具 v3.1 (Pro)</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <style>
+        body { background-color: #f8f9fa; padding-top: 20px; display: flex; flex-direction: column; min-height: 100vh; }
+        .main-content { flex: 1; }
+        .tool-section { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
+        .tool-section.active { display: block; }
+        .nav-pills .nav-link { cursor: pointer; margin-right: 5px; }
+        .nav-pills .nav-link.active { font-weight: bold; background-color: #0d6efd; }
+
+        /* --- PDF 工具樣式 --- */
+        #pdf-preview-area {
+            min-height: 200px; border: 2px dashed #ccc; padding: 20px;
+            background: #fdfdfd; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center;
+        }
+        .pdf-page-container {
+            width: 160px; background: #fff; border: 1px solid #ddd; cursor: grab;
+            position: relative; transition: transform 0.2s, box-shadow 0.2s;
+            display: flex; flex-direction: column; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            user-select: none;
+        }
+        .pdf-page-container:active { cursor: grabbing; }
+        .sortable-ghost { opacity: 0.4; background: #c8ebfb; border: 2px dashed #0d6efd; }
+        .pdf-page-container.selected { border: 2px solid #0d6efd; background-color: #e9ecef; }
+        
+        /* 選中勾勾 */
+        .pdf-check-icon {
+            position: absolute; top: 5px; right: 5px; width: 22px; height: 22px;
+            background: #0d6efd; color: white; border-radius: 50%; text-align: center;
+            line-height: 22px; font-size: 14px; display: none; z-index: 10;
+        }
+        .pdf-page-container.selected .pdf-check-icon { display: block; }
+
+        /* 旋轉按鈕 */
+        .pdf-rotate-btn {
+            position: absolute; top: 5px; left: 5px; width: 22px; height: 22px;
+            background: rgba(255, 255, 255, 0.9); color: #333; border: 1px solid #ccc;
+            border-radius: 4px; text-align: center; line-height: 20px; font-size: 12px;
+            cursor: pointer; z-index: 10; transition: 0.2s;
+        }
+        .pdf-rotate-btn:hover { background: #e9ecef; color: #0d6efd; }
+
+        .pdf-canvas-wrapper { 
+            flex-grow: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; 
+            background: #666; padding: 5px; height: 200px;
+        }
+        .pdf-canvas-wrapper canvas { 
+            max-width: 100%; max-height: 100%; width: auto; height: auto; 
+            transition: transform 0.3s ease; /* 平滑旋轉視覺效果 */
+        }
+        .page-info { 
+            text-align: center; font-size: 11px; padding: 5px; color: #555; 
+            background: #f8f9fa; border-top: 1px solid #eee; 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+        }
+
+        /* --- Barcode 工具樣式 --- */
+        .code-preview-item { border: 1px solid #eee; padding: 10px; margin-bottom: 10px; text-align: center; background: #fff; }
+        
+        /* --- 圖片壓縮工具樣式 --- */
+        .drop-zone {
+            border: 2px dashed #999; padding: 40px; text-align: center;
+            border-radius: 6px; cursor: pointer; transition: 0.2s; margin-bottom: 20px; background: #fff;
+        }
+        .drop-zone:hover { border-color: #0d6efd; background: #f0f8ff; }
+        .stats-dashboard {
+            background: #fff4f5; border: 1px solid #fdd8db; border-radius: 6px; padding: 15px; margin-bottom: 20px;
+            display: flex; justify-content: space-around; align-items: center; display: none;
+        }
+        .stat-val { font-weight: bold; font-size: 1.2rem; font-family: Consolas, monospace; }
+        .stat-saved { color: #198754; font-weight: bold; }
+        #img-progress-container { width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; margin-bottom: 20px; display: none; overflow: hidden; }
+        #img-progress-bar { height: 100%; background: #0d6efd; width: 0%; transition: width 0.2s; }
+        .thumb-img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; background: #eee; }
+        .disabled-input { opacity: 0.5; pointer-events: none; background: #eee; }
+
+        /* Toast Container */
+        .toast-container { z-index: 1055; }
+    </style>
+
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    </script>
+</head>
+<body>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="liveToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="toast-msg">Hello, world!</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<div class="container main-content">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+        <h2 class="text-primary"><i class="bi bi-collection-fill"></i> OFFICE 萬用小工具 v3.1</h2>
+        <ul class="nav nav-pills mt-2 mt-md-0">
+            <li class="nav-item"><a class="nav-link active" onclick="switchTab('pdf')"><i class="bi bi-file-pdf"></i> PDF 助手</a></li>
+            <li class="nav-item"><a class="nav-link" onclick="switchTab('code')"><i class="bi bi-qr-code"></i> 條碼生成</a></li>
+            <li class="nav-item"><a class="nav-link" onclick="switchTab('img')"><i class="bi bi-images"></i> 圖片壓縮</a></li>
+        </ul>
+    </div>
+
+    <div id="pdf-tool" class="tool-section active">
+        <div class="alert alert-info py-2 small">
+            <i class="bi bi-info-circle-fill"></i> 功能：合併、分割、排序、旋轉。上傳後<strong>拖曳頁面排序</strong>，點擊選取，或按 <i class="bi bi-arrow-clockwise"></i> 旋轉頁面。
+        </div>
+        <div class="row mb-3 align-items-end">
+            <div class="col-md-7">
+                <label class="form-label">選擇 PDF (可多選)</label>
+                <input type="file" id="pdf-upload" class="form-control" accept="application/pdf" multiple onchange="handlePdfUpload()">
+            </div>
+            <div class="col-md-5 text-end">
+                <div class="btn-group">
+                    <button class="btn btn-outline-secondary" onclick="selectAllPages()">全選</button>
+                    <button class="btn btn-outline-secondary" onclick="invertSelection()">反選</button>
+                    <button class="btn btn-outline-danger" onclick="clearPdfAll()">清除</button>
+                </div>
+                <button class="btn btn-primary ms-2" onclick="exportSelectedPdf()"><i class="bi bi-download"></i> 匯出 PDF</button>
+            </div>
+        </div>
+        <div id="pdf-preview-area">
+            <div class="text-muted text-center w-100" style="margin-top: 80px;">
+                <i class="bi bi-cloud-upload display-4"></i><br>請上傳 PDF 檔案
+            </div>
+        </div>
+    </div>
+
+    <div id="code-tool" class="tool-section">
+        <div class="row">
+            <div class="col-md-5">
+                <label class="form-label"><strong>批量輸入資料</strong> (格式: <code>編碼, 描述</code>)</label>
+                <textarea id="code-input" class="form-control" rows="12" placeholder="P-1001, 辦公椅&#10;https://google.com, 公司網頁"></textarea>
+                <div class="row mt-3">
+                    <div class="col-6">
+                        <label>類型</label>
+                        <select id="code-type" class="form-select">
+                            <option value="barcode">BarCode (Code128)</option>
+                            <option value="qrcode">QR Code</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label>操作</label>
+                        <button class="btn btn-primary w-100 mt-4 mt-md-0" style="height: 38px; margin-top: 24px!important;" onclick="generateCodes()">生成預覽</button>
+                    </div>
+                </div>
+                <div class="mt-4 d-grid gap-2">
+                    <button class="btn btn-outline-success" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel"></i> 匯出 Excel</button>
+                    <button class="btn btn-outline-danger" onclick="exportToPdfCode()"><i class="bi bi-printer"></i> 匯出 PDF (A4)</button>
+                </div>
+            </div>
+            <div class="col-md-7">
+                <label class="form-label">預覽 (<span id="count-badge">0</span>)</label>
+                <div id="code-result-area" class="bg-light p-3 border" style="height: 600px; overflow-y: auto;">
+                    <div class="text-center text-muted mt-5"><i class="bi bi-list-ol display-6"></i><br>請輸入資料並生成</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="img-tool" class="tool-section">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4><i class="bi bi-lightning-charge-fill text-warning"></i> 極速圖片壓縮 <span class="badge bg-secondary fs-6">v3.1 Pro</span></h4>
+            <span class="text-muted small">支援 JPG, PNG, <span class="badge bg-dark">HEIC</span></span>
+        </div>
+        
+        <div id="img-stats-bar" class="stats-dashboard mt-3">
+            <div>數量: <span id="statCount" class="stat-val">0</span></div>
+            <div>原始: <span id="statOriginal" class="stat-val">0 MB</span></div>
+            <div>壓縮後: <span id="statCompressed" class="stat-val">...</span></div>
+            <div><span id="statSaved" class="stat-saved"></span></div>
+        </div>
+
+        <div class="card p-3 mb-3 bg-light border-0">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">水印開關</label>
+                    <div class="form-check form-switch bg-white p-2 rounded border">
+                        <input class="form-check-input ms-0" type="checkbox" id="enableWatermark" checked style="margin-left: 0.5em!important;">
+                        <label class="form-check-label ms-2" for="enableWatermark">啟用日期水印</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">尺寸 & 品質</label>
+                    <div class="input-group mb-1">
+                        <select class="form-select" id="widthPreset" onchange="document.getElementById('maxWidth').value=this.value">
+                            <option value="">原圖</option>
+                            <option value="1920" selected>1920 (FHD)</option>
+                            <option value="1280">1280 (HD)</option>
+                        </select>
+                        <input type="number" class="form-control" id="maxWidth" value="1920" placeholder="寬度">
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <label class="small me-2 text-muted">品質:</label>
+                        <input type="range" class="form-range flex-grow-1" id="imgQuality" min="0.1" max="1.0" step="0.1" value="0.8" oninput="document.getElementById('qVal').innerText=this.value">
+                        <span id="qVal" class="small ms-2 fw-bold text-primary">0.8</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">樣式 (字體/顏色)</label>
+                    <div class="d-flex gap-1">
+                        <select class="form-select" id="fontFamily">
+                            <option value="Arial">無襯線</option>
+                            <option value="Courier New">數位字</option>
+                            <option value="Microsoft JhengHei">正黑體</option>
+                        </select>
+                        <select class="form-select" id="textColor">
+                            <option value="orange">橙色</option>
+                            <option value="white">白色</option>
+                            <option value="yellow">黃色</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">處理核心</label>
+                    <select class="form-select" id="concurrency">
+                        <option value="3">3 (穩定)</option>
+                        <option value="5" selected>5 (快速)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="drop-zone" id="img-drop-zone">
+            <i class="bi bi-cloud-arrow-up display-4 text-primary"></i>
+            <h5 class="mt-2">點擊或拖曳圖片 (支援 HEIC)</h5>
+            <div class="text-muted">支援大量批次處理，自動讀取 EXIF 日期</div>
+            <input type="file" id="img-upload" multiple accept="image/*,.heic" style="display: none;">
+        </div>
+
+        <div id="img-progress-container"><div id="img-progress-bar"></div></div>
+
+        <div class="d-flex justify-content-end gap-2 mb-3">
+            <button id="img-process-btn" class="btn btn-primary" disabled><i class="bi bi-play-fill"></i> 開始處理</button>
+            <button id="img-download-btn" class="btn btn-success" style="display:none;"><i class="bi bi-box-seam"></i> 下載 ZIP</button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle" id="img-file-table" style="display:none;">
+                <thead class="table-light">
+                    <tr>
+                        <th width="60">預覽</th>
+                        <th>檔名 (自動加 wm_)</th>
+                        <th width="100">原始</th>
+                        <th width="100">壓縮後</th>
+                        <th>日期設定</th>
+                        <th width="80">狀態</th>
+                    </tr>
+                </thead>
+                <tbody id="img-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<footer class="mt-5 py-4 border-top text-center text-muted bg-white">
+    <div class="container">
+        <p class="mb-1">
+            <strong>Office 萬用小工具 v3.1 (Open Source)</strong>
+        </p>
+        <p class="small mb-3">
+            本工具源碼發布於 GitHub，僅供技術交流與個人使用。
+        </p>
+        
+        <div class="alert alert-light border d-inline-block text-start" style="max-width: 700px; font-size: 0.85rem;">
+            <i class="bi bi-shield-exclamation text-warning"></i> <strong>免責聲明與私隱條款 (Disclaimer & Privacy)：</strong>
+            <ul class="mb-0 ps-3 mt-1">
+                <li><strong>本地運算 (Privacy First)：</strong>本工具所有功能（PDF 處理、條碼生成、圖片壓縮、HEIC 轉檔）均在閣下的瀏覽器端（Client-side）執行。<strong>檔案不會上傳至任何伺服器</strong>。</li>
+                <li><strong>風險自負 (No Warranty)：</strong>本軟體按「原樣」提供，不提供任何形式的擔保。作者不對使用本工具導致的任何資料丟失或損壞負責。</li>
+                <li><strong>備份建議：</strong>在處理重要文件（如原始圖片或 PDF）前，建議閣下自行保留備份。</li>
+            </ul>
+        </div>
+        
+        <p class="small mt-3 mb-0">
+            &copy; 2026 Developed by [Your GitHub ID]. Licensed under MIT License.
+        </p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // --- Utils: Toast Notification ---
+    function showToast(msg, type='primary') {
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = document.getElementById('toast-msg');
+        toastBody.textContent = msg;
+        toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tool-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+        if(tab === 'pdf') {
+            document.getElementById('pdf-tool').classList.add('active');
+            document.querySelectorAll('.nav-link')[0].classList.add('active');
+        } else if(tab === 'code') {
+            document.getElementById('code-tool').classList.add('active');
+            document.querySelectorAll('.nav-link')[1].classList.add('active');
+        } else {
+            document.getElementById('img-tool').classList.add('active');
+            document.querySelectorAll('.nav-link')[2].classList.add('active');
+        }
+    }
+
+    function downloadBlob(data, fileName, mimeType) {
+        const blob = new Blob([data], { type: mimeType });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }
+
+    // ==========================================
+    // MODULE 1: PDF 處理邏輯 (增強版)
+    // ==========================================
+    let pdfDataStore = [];
+    let pdfIdCounter = 0;
+    
+    new Sortable(document.getElementById('pdf-preview-area'), {
+        animation: 150,
+        ghostClass: 'sortable-ghost'
+    });
+
+    async function handlePdfUpload() {
+        const files = document.getElementById('pdf-upload').files;
+        const previewArea = document.getElementById('pdf-preview-area');
+        if (files.length === 0) return;
+        
+        if (previewArea.innerText.includes('請上傳')) previewArea.innerHTML = '';
+        showToast(`正在讀取 ${files.length} 個 PDF...`);
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer); // For Export
+                const loadingTask = pdfjsLib.getDocument({data: arrayBuffer}); // For Preview
+                const pdfViewerDoc = await loadingTask.promise;
+                
+                for (let pageNum = 1; pageNum <= pdfViewerDoc.numPages; pageNum++) {
+                    const uniqueId = `pdf-${pdfIdCounter++}`;
+                    
+                    // Render UI Skeleton
+                    const div = document.createElement('div');
+                    div.className = 'pdf-page-container';
+                    div.dataset.storeId = uniqueId;
+                    div.innerHTML = `
+                        <div class="pdf-check-icon"><i class="bi bi-check-lg"></i></div>
+                        <div class="pdf-rotate-btn" onclick="rotatePdfPage(event, '${uniqueId}')" title="旋轉"><i class="bi bi-arrow-clockwise"></i></div>
+                        <div class="pdf-canvas-wrapper" id="wrap-${uniqueId}"></div>
+                        <div class="page-info" title="${file.name}">${file.name.substring(0, 8)}.. P${pageNum}</div>
+                    `;
+                    div.onclick = (e) => { 
+                        if(!e.target.closest('.pdf-rotate-btn')) div.classList.toggle('selected'); 
+                    };
+                    previewArea.appendChild(div);
+
+                    // Store Data
+                    pdfDataStore.push({ 
+                        id: uniqueId, 
+                        fileObj: pdfDoc, 
+                        pageIndex: pageNum - 1, 
+                        rotation: 0 
+                    });
+
+                    // Lazyish Render
+                    renderPdfPageThumbnail(pdfViewerDoc, pageNum, uniqueId);
+                }
+            } catch(e) {
+                console.error(e);
+                showToast(`無法讀取 ${file.name}`, 'danger');
+            }
+        }
+        document.getElementById('pdf-upload').value = '';
+    }
+
+    async function renderPdfPageThumbnail(pdfDoc, pageNum, uniqueId) {
+        const page = await pdfDoc.getPage(pageNum);
+        const scale = 0.3; 
+        const viewport = page.getViewport({scale: scale});
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        await page.render({canvasContext: context, viewport: viewport}).promise;
+        document.getElementById(`wrap-${uniqueId}`).appendChild(canvas);
+    }
+
+    // 旋轉邏輯
+    window.rotatePdfPage = function(e, id) {
+        e.stopPropagation(); // 防止觸發選取
+        const item = pdfDataStore.find(d => d.id === id);
+        if(!item) return;
+        
+        // 更新數據 (每次 +90度)
+        item.rotation = (item.rotation + 90) % 360;
+        
+        // 更新 UI
+        const wrapper = document.getElementById(`wrap-${id}`);
+        const canvas = wrapper.querySelector('canvas');
+        if(canvas) {
+            canvas.style.transform = `rotate(${item.rotation}deg)`;
+            // 處理旋轉後的寬高適應問題 (簡單版：只旋轉 canvas)
+            // 若要完美適應容器，需要更複雜 CSS，這裡採用視覺旋轉即可
+        }
+    };
+
+    function selectAllPages() { document.querySelectorAll('.pdf-page-container').forEach(el => el.classList.add('selected')); }
+    function invertSelection() { document.querySelectorAll('.pdf-page-container').forEach(el => el.classList.toggle('selected')); }
+    function clearPdfAll() {
+        if(confirm('確定清空？')) {
+            pdfDataStore = [];
+            document.getElementById('pdf-preview-area').innerHTML = '<div class="text-muted text-center w-100" style="margin-top: 80px;"><i class="bi bi-cloud-upload display-4"></i><br>請上傳 PDF 檔案</div>';
+        }
+    }
+
+    async function exportSelectedPdf() {
+        const container = document.getElementById('pdf-preview-area');
+        const selectedItems = Array.from(container.querySelectorAll('.pdf-page-container.selected'));
+        if (selectedItems.length === 0) { showToast('請至少選擇一頁', 'warning'); return; }
+
+        const newPdf = await PDFLib.PDFDocument.create();
+        for (let el of selectedItems) {
+            const data = pdfDataStore.find(d => d.id === el.dataset.storeId);
+            if (data) {
+                const [copiedPage] = await newPdf.copyPages(data.fileObj, [data.pageIndex]);
+                // 應用旋轉
+                if(data.rotation !== 0) {
+                    const existingRotation = copiedPage.getRotation().angle;
+                    copiedPage.setRotation(PDFLib.degrees(existingRotation + data.rotation));
+                }
+                newPdf.addPage(copiedPage);
+            }
+        }
+        const pdfBytes = await newPdf.save();
+        downloadBlob(pdfBytes, 'combined_v3.pdf', 'application/pdf');
+        showToast('PDF 匯出成功!', 'success');
+    }
+
+    // ==========================================
+    // MODULE 2: Barcode 邏輯 (無變更，僅錯誤提示優化)
+    // ==========================================
+    let generatedCodes = [];
+    function generateCodes() {
+        const input = document.getElementById('code-input').value;
+        const type = document.getElementById('code-type').value;
+        const resultArea = document.getElementById('code-result-area');
+        
+        if (!input.trim()) { showToast('請輸入內容', 'warning'); return; }
+
+        resultArea.innerHTML = '';
+        generatedCodes = [];
+        const lines = input.split('\n');
+        let count = 0;
+        
+        lines.forEach((line) => {
+            if(!line.trim()) return;
+            let parts = line.split(/,|，/); 
+            let code = parts[0].trim();
+            let desc = parts.length > 1 ? parts.slice(1).join(' ').trim() : '';
+            if(!code) return;
+            count++;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-preview-item';
+            if(desc) wrapper.innerHTML += `<strong>${desc}</strong><br>`;
+
+            if (type === 'barcode') {
+                const canvas = document.createElement('canvas');
+                try {
+                    JsBarcode(canvas, code, { format: "CODE128", displayValue: true, fontSize: 14, height: 40, margin: 5 });
+                    wrapper.appendChild(canvas);
+                    generatedCodes.push({ code, desc, type, imgData: canvas.toDataURL("image/jpeg") });
+                } catch (e) { wrapper.innerHTML += `<span class="text-danger">格式錯誤 (僅英數)</span>`; }
+            } else {
+                const div = document.createElement('div');
+                div.style.display = 'inline-block';
+                new QRCode(div, { text: code, width: 100, height: 100 });
+                wrapper.appendChild(div);
+                wrapper.innerHTML += `<div class="text-muted small mt-1">${code}</div>`;
+                setTimeout(() => {
+                    const img = div.querySelector('img');
+                    if(img) generatedCodes[generatedCodes.length-1].imgData = img.src;
+                }, 300);
+                generatedCodes.push({ code, desc, type, imgData: null });
+            }
+            resultArea.appendChild(wrapper);
+        });
+        document.getElementById('count-badge').innerText = count;
+        showToast(`已生成 ${count} 個條碼`);
+    }
+
+    function exportToExcel() {
+        if(generatedCodes.length===0){showToast('無資料可匯出', 'warning');return;}
+        const wsData = [["編碼", "描述", "類型"], ...generatedCodes.map(i => [i.code, i.desc, i.type])];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), "Codes");
+        XLSX.writeFile(wb, "Barcode_Data.xlsx");
+    }
+
+    function exportToPdfCode() {
+        if(generatedCodes.length===0){showToast('無資料可匯出', 'warning');return;}
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let x = 10, y = 10, col = 0;
+        const cellW = 63, cellH = 50;
+
+        generatedCodes.forEach((item) => {
+            if (y + cellH > 280) { doc.addPage(); y = 10; x = 10; col = 0; }
+            doc.setDrawColor(220); doc.rect(x, y, cellW, cellH);
+            const cx = x + (cellW/2);
+            doc.setFontSize(9);
+            try { if(item.desc) doc.text(item.desc, cx, y+8, {align:'center'}); } catch(e){}
+
+            if (item.imgData) {
+                if (item.type === 'barcode') doc.addImage(item.imgData, 'JPEG', x+2, y+12, cellW-4, 30);
+                else {
+                    doc.addImage(item.imgData, 'PNG', cx-15, y+10, 30, 30);
+                    doc.setFontSize(8); doc.text(item.code, cx, y+45, {align:'center'});
+                }
+            }
+            x += cellW; col++;
+            if (col >= 3) { col = 0; x = 10; y += cellH; }
+        });
+        doc.save("Codes.pdf");
+    }
+
+    // ==========================================
+    // MODULE 3: 圖片壓縮 (含 HEIC 轉檔)
+    // ==========================================
+    const imgUpload = document.getElementById('img-upload');
+    const imgDropZone = document.getElementById('img-drop-zone');
+    const imgTableBody = document.getElementById('img-table-body');
+    const imgProcessBtn = document.getElementById('img-process-btn');
+    const imgDownloadBtn = document.getElementById('img-download-btn');
+    
+    let imgDataList = [];
+    let processedImages = [];
+    let totalOrigSize = 0, totalCompSize = 0, imgDoneCount = 0;
+
+    imgDropZone.addEventListener('click', () => imgUpload.click());
+    imgDropZone.addEventListener('dragover', e => { e.preventDefault(); imgDropZone.style.background = '#e9ecef'; });
+    imgDropZone.addEventListener('dragleave', e => { e.preventDefault(); imgDropZone.style.background = '#fff'; });
+    imgDropZone.addEventListener('drop', e => { e.preventDefault(); imgDropZone.style.background = '#fff'; handleImages(e.dataTransfer.files); });
+    imgUpload.addEventListener('change', () => handleImages(imgUpload.files));
+
+    document.getElementById('enableWatermark').addEventListener('change', (e) => {
+        const disabled = !e.target.checked;
+        const fontG = document.getElementById('fontFamily');
+        const colorG = document.getElementById('textColor');
+        fontG.disabled = disabled; colorG.disabled = disabled;
+    });
+
+    const formatBytes = (b) => {
+        if (!+b) return '0 B';
+        const i = Math.floor(Math.log(b) / Math.log(1024));
+        return `${parseFloat((b / Math.pow(1024, i)).toFixed(1))} ${['B','KB','MB','GB'][i]}`;
+    };
+
+    async function handleImages(files) {
+        if (!files.length) return;
+        imgDataList = []; processedImages = []; totalOrigSize = 0; totalCompSize = 0; imgDoneCount = 0;
+        
+        imgTableBody.innerHTML = '';
+        document.getElementById('img-file-table').style.display = 'table';
+        document.getElementById('img-stats-bar').style.display = 'flex';
+        document.getElementById('img-progress-container').style.display = 'block';
+        document.getElementById('img-progress-bar').style.width = '0%';
+        imgDownloadBtn.style.display = 'none';
+        imgProcessBtn.disabled = true;
+        imgProcessBtn.textContent = '準備中...';
+
+        const fileArr = Array.from(files);
+        document.getElementById('statCount').textContent = fileArr.length;
+        document.getElementById('statCompressed').textContent = '...';
+        document.getElementById('statSaved').textContent = '';
+
+        for (let i = 0; i < fileArr.length; i++) {
+            let file = fileArr[i];
+            let isHeic = file.name.toLowerCase().endsWith('.heic');
+            
+            // UI Pre-render
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td id="thumb-${i}"><div class="spinner-border spinner-border-sm" role="status"></div></td>
+                <td class="small text-truncate" style="max-width: 150px;" title="${file.name}">${file.name}</td>
+                <td class="small text-muted">${formatBytes(file.size)}</td>
+                <td class="small fw-bold" id="img-size-new-${i}">-</td>
+                <td><input type="text" class="form-control form-control-sm" id="img-date-${i}" value="..." style="font-family:Consolas;"></td>
+                <td id="img-status-${i}"><span class="badge bg-secondary">等待</span></td>
+            `;
+            imgTableBody.appendChild(tr);
+
+            // HEIC Conversion Logic
+            if (isHeic) {
+                try {
+                    showToast('正在轉換 HEIC 格式...', 'info');
+                    const blob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
+                    const newName = file.name.replace(/\.heic$/i, ".jpg");
+                    file = new File([blob], newName, { type: "image/jpeg", lastModified: file.lastModified });
+                } catch (e) {
+                    document.getElementById(`img-status-${i}`).innerHTML = '<span class="badge bg-danger">HEIC 錯誤</span>';
+                    console.error(e);
+                    continue; 
+                }
+            }
+
+            totalOrigSize += file.size;
+            
+            // Generate Thumb & EXIF
+            const thumbUrl = URL.createObjectURL(file);
+            document.getElementById(`thumb-${i}`).innerHTML = `<img src="${thumbUrl}" class="thumb-img">`;
+            
+            getExifData(file).then(exif => {
+                const dateStr = exif.date || formatImgDate(new Date(file.lastModified));
+                imgDataList[i] = { file, id: i, orientation: exif.orientation, dateStr };
+                const dateInput = document.getElementById(`img-date-${i}`);
+                if(dateInput) dateInput.value = dateStr;
+            });
+            
+            // Placeholder for data array
+            if(imgDataList.length <= i) imgDataList.push(null); 
+        }
+
+        document.getElementById('statOriginal').textContent = formatBytes(totalOrigSize);
+        imgProcessBtn.disabled = false;
+        imgProcessBtn.innerHTML = '<i class="bi bi-play-fill"></i> 開始處理';
+    }
+
+    imgProcessBtn.addEventListener('click', async () => {
+        imgProcessBtn.disabled = true;
+        const concurrency = parseInt(document.getElementById('concurrency').value);
+        const settings = {
+            width: parseInt(document.getElementById('maxWidth').value) || 0,
+            quality: parseFloat(document.getElementById('imgQuality').value),
+            font: document.getElementById('fontFamily').value,
+            color: document.getElementById('textColor').value,
+            enableWm: document.getElementById('enableWatermark').checked
+        };
+
+        let index = 0;
+        const promises = [];
+        for (let i = 0; i < concurrency; i++) {
+            promises.push(new Promise(async (resolve) => {
+                while (index < imgDataList.length) {
+                    const curr = index++;
+                    if (!imgDataList[curr]) { resolve(); return; }
+                    await processOneImage(imgDataList[curr], settings);
+                }
+                resolve();
+            }));
+        }
+        await Promise.all(promises);
+        imgProcessBtn.textContent = '完成';
+        showToast('所有圖片處理完成！', 'success');
+        if (processedImages.length > 0) {
+            imgDownloadBtn.style.display = 'block';
+        }
+    });
+
+    async function processOneImage(item, s) {
+        const i = item.id;
+        const statusCell = document.getElementById(`img-status-${i}`);
+        const userDate = document.getElementById(`img-date-${i}`).value;
+        statusCell.innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span>';
+
+        try {
+            const blob = await processImageTurbo(item.file, userDate, s, item.orientation);
+            totalCompSize += blob.size;
+            processedImages.push({ name: "wm_" + item.file.name, blob });
+            
+            document.getElementById(`img-size-new-${i}`).textContent = formatBytes(blob.size);
+            statusCell.innerHTML = '<span class="badge bg-success">OK</span>';
+            
+            imgDoneCount++;
+            updateImgStats();
+        } catch (e) {
+            console.error(e);
+            statusCell.innerHTML = '<span class="badge bg-danger">失敗</span>';
+        }
+    }
+
+    function updateImgStats() {
+        const pct = (imgDoneCount / imgDataList.length) * 100;
+        document.getElementById('img-progress-bar').style.width = `${pct}%`;
+        document.getElementById('statCompressed').textContent = formatBytes(totalCompSize);
+        if (totalOrigSize > 0) {
+            const saved = totalOrigSize - totalCompSize;
+            const savedPct = ((saved / totalOrigSize) * 100).toFixed(1);
+            const savedText = saved >= 0 ? `省下 ${savedPct}%` : `增加 ${Math.abs(savedPct)}%`;
+            document.getElementById('statSaved').innerText = savedText;
+        }
+    }
+
+    function processImageTurbo(file, text, s, orient) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const bmp = await createImageBitmap(file);
+                const cvs = document.createElement('canvas');
+                const ctx = cvs.getContext('2d');
+                let w = bmp.width, h = bmp.height;
+                // Orientation Swap
+                if (orient > 4 && orient < 9) [w, h] = [h, w];
+                // Resize
+                if (s.width > 0 && w > s.width) {
+                    h = Math.round(h * (s.width / w));
+                    w = s.width;
+                }
+                cvs.width = w; cvs.height = h;
+
+                // Transform based on EXIF
+                switch (orient) {
+                    case 2: ctx.transform(-1, 0, 0, 1, w, 0); break;
+                    case 3: ctx.transform(-1, 0, 0, -1, w, h); break;
+                    case 4: ctx.transform(1, 0, 0, -1, 0, h); break;
+                    case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+                    case 6: ctx.transform(0, 1, -1, 0, w, 0); break;
+                    case 7: ctx.transform(0, -1, -1, 0, h, w); break;
+                    case 8: ctx.transform(0, -1, 1, 0, 0, h); break;
+                }
+                
+                const scale = w / (orient > 4 && orient < 9 ? bmp.height : bmp.width);
+                ctx.scale(scale, scale);
+                ctx.drawImage(bmp, 0, 0);
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                bmp.close(); 
+
+                // Watermark
+                if (s.enableWm && text) {
+                    const fs = Math.max(20, h * 0.045);
+                    ctx.font = `bold ${fs}px "${s.font}", sans-serif`;
+                    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+                    const p = fs * 0.7; 
+                    ctx.lineJoin = 'round'; ctx.lineWidth = fs * 0.15;
+                    
+                    if (s.color === 'orange') { ctx.strokeStyle = '#3a1804'; ctx.fillStyle = '#ff9100'; }
+                    else if (s.color === 'white') { ctx.strokeStyle = 'black'; ctx.fillStyle = 'white'; }
+                    else { ctx.strokeStyle = 'black'; ctx.fillStyle = '#facc15'; }
+                    
+                    ctx.strokeText(text, w-p, h-p); ctx.fillText(text, w-p, h-p);
+                }
+                cvs.toBlob(resolve, 'image/jpeg', s.quality); // Dynamic Quality
+            } catch (e) { reject(e); }
+        });
+    }
+
+    imgDownloadBtn.addEventListener('click', async () => {
+        imgDownloadBtn.textContent = '打包中...';
+        const zip = new JSZip();
+        const usedNames = {};
+        processedImages.forEach(item => {
+            let name = item.name.replace(/\.[^/.]+$/, "");
+            let ext = ".jpg";
+            let finalName = name + ext;
+            let c = 1;
+            while(usedNames[finalName]) { finalName = `${name}_(${c})${ext}`; c++; }
+            usedNames[finalName] = true;
+            zip.file(finalName, item.blob);
+        });
+        const content = await zip.generateAsync({type:"blob"});
+        downloadBlob(content, "compressed_photos.zip", "application/zip");
+        imgDownloadBtn.innerHTML = '<i class="bi bi-box-seam"></i> 下載 ZIP';
+    });
+
+    const formatImgDate = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    function getExifData(file) {
+        return new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const view = new DataView(e.target.result);
+                if (view.getUint16(0) != 0xFFD8) return resolve({date: null, orientation: 1});
+                let offset = 2, len = view.byteLength, res = {date: null, orientation: 1};
+                while (offset < len) {
+                    if (view.getUint16(offset+2) <= 8) break;
+                    let marker = view.getUint16(offset); offset += 2;
+                    if (marker == 0xFFE1) {
+                        if (view.getUint32(offset+=2) != 0x45786966) break;
+                        let little = view.getUint16(offset+=6) == 0x4949;
+                        offset += view.getUint32(offset+4, little);
+                        let tags = view.getUint16(offset, little); offset += 2;
+                        for (let i=0; i<tags; i++) {
+                            let tag = view.getUint16(offset + i*12, little);
+                            if (tag == 0x9003) {
+                                let s = ""; let o = view.getUint32(offset+i*12+8, little);
+                                for(let k=0;k<19;k++) s+=String.fromCharCode(view.getUint8(o+k));
+                                let p = s.split(' ');
+                                res.date = p[0].replace(/:/g, '/') + ' ' + p[1].substring(0,5);
+                            } else if (tag == 0x0112) res.orientation = view.getUint16(offset+i*12+8, little);
+                        }
+                        break;
+                    } else if ((marker & 0xFF00) != 0xFF00) break;
+                    else offset += view.getUint16(offset);
+                }
+                resolve(res);
+            };
+            reader.readAsArrayBuffer(file.slice(0, 64*1024));
+        });
+    }
+</script>
+</body>
+</html>
