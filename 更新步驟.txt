@@ -1,0 +1,8 @@
+v4.12：移除 Office 文件轉 PDF
+1. 將本資料夾 index.html 及 office411-sw.js 複製到 GitHub 專案原 index.html 所在位置，覆蓋同名檔案。
+2. GitHub Desktop 填 Summary，Commit，再 Push origin。
+3. 部署完成後關閉原網站所有分頁，再重新開啟，確認版本 v4.12。
+4. office411-sw.js 是舊版清理程式，請保留以協助已使用 v4.11 的瀏覽器更新。
+舊的 office411.js、office411-bootstrap.js、office-engine 資料夾及 fonts 資料夾已不使用；如僅屬本工具可刪除，勿刪其他網站共用檔案。
+新版 index.html 已內置字體和 PDF／OCR 引擎，可單獨下載使用。首次開啟仍需解碼內置引擎，但不再下載 Office 引擎。
+已移除 DOC/DOCX/PPT/PPTX/XLS/XLSX、TXT/CSV 轉 PDF；保留條碼資料匯出 Excel。
