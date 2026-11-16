@@ -2,13 +2,13 @@
 
 一個純前端的辦公室生產力工具集合。檔案在瀏覽器內處理。
 
-[開啟 PDF、條碼與圖片工具](https://perryamos941-tech.github.io/office-tools/) · [開啟批量改名與影片工具](https://perryamos941-tech.github.io/office-tools/file-tools/)
+[開啟 Office 萬用小工具](https://perryamos941-tech.github.io/office-tools/) · [開啟批量改名與影片工具](https://perryamos941-tech.github.io/office-tools/file-tools/)
 
-## v4.13 檔案工具
+## v4.14 檔案工具
 
 - **批量改名**支援 JPG／JPEG／HEIC／HEIF 的 EXIF 拍攝時間，以及其他檔案的修改時間。可沿用原名或輸入活動名稱，預覽後下載改名副本的 ZIP。每批最多 250 MB 及 3,000 個檔案。
-- **影片工具**支援單段影片轉 MP4。快速模式盡量保留原有影音，必要時將音訊轉成 AAC。兼容及壓縮模式輸出 H.264／AAC。每段最多 128 MB，建議使用電腦瀏覽器。DAV 支援視乎錄影機的匯出格式。
-- 檔案工具使用獨立頁面。處理元件按需從 CDN 載入，原始檔案在瀏覽器內處理。影片功能透過 HTTPS 或 localhost 開啟。
+- **影片工具**支援單段影片轉 MP4。兩個模式均輸出 H.264 8-bit 4:2:0／AAC-LC MP4，適合 Windows 播放。每段最多 128 MB，建議使用電腦瀏覽器。DAV 支援視乎錄影機的匯出格式。
+- 檔案工具可從首頁的 04／05 分頁或獨立頁面開啟。處理元件按需從 CDN 載入，原始檔案在瀏覽器內處理。影片功能透過 HTTPS 或 localhost 開啟。
 
 ## 🚀 主要功能 (Features)
 

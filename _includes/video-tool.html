@@ -1,0 +1,17 @@
+<h2 id="video-title">影片轉檔及壓縮</h2>
+  <p>選擇一段 DAV、MP4、MOV、MKV、AVI 或 WebM，輸出 MP4。建議在電腦使用，每段上限 128 MB。</p>
+  <label>選擇影片 <input type="file" id="video-file" accept=".dav,.mp4,.mov,.mkv,.avi,.webm,video/*"></label>
+  <label>處理方式
+    <select id="video-mode">
+      <option value="compatible">Windows 相容 MP4 · 最高 1080p</option>
+      <option value="compress">減少檔案大小 · H.264／AAC，最高 720p</option>
+    </select>
+  </label>
+  <p class="detail">兩個模式均輸出 H.264／AAC MP4，最高 30 fps。壓縮後大小視乎原片。首次使用需下載約 31 MB 的轉檔引擎。</p>
+  <div class="actions">
+    <button id="video-start" disabled>開始處理</button>
+    <button id="video-cancel" hidden>取消</button>
+    <a id="video-download" class="button" hidden>下載 MP4</a>
+  </div>
+  <p id="video-status" role="status">請選擇影片。</p>
+  <details id="video-diagnostics" hidden><summary>轉檔詳情</summary><pre id="video-log"></pre></details>

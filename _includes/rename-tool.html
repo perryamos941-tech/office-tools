@@ -1,0 +1,20 @@
+<h2 id="rename-title">批量改名</h2>
+  <p>JPG、JPEG、HEIC、HEIF 優先用 EXIF 拍攝時間。其他檔案及缺少拍攝時間的相片使用檔案修改時間。</p>
+  <label>選擇檔案 <input type="file" id="rename-files" multiple></label>
+  <div class="fields">
+    <label>命名格式
+      <select id="rename-format">
+        <option value="date-first">20261116 14 32 08_名稱</option>
+        <option value="name-first">名稱(261116 143208)</option>
+        <option value="sortable">20261116_143208_名稱</option>
+      </select>
+    </label>
+    <label>名稱 <input type="text" id="rename-name" maxlength="120" placeholder="留空沿用原檔名"></label>
+  </div>
+  <p id="rename-status" role="status">選檔後可預覽新檔名。</p>
+  <div id="rename-results" class="table-scroll" tabindex="0" aria-label="改名預覽" hidden>
+    <table><thead><tr><th scope="col">原檔名</th><th scope="col">新檔名</th><th scope="col">時間來源</th></tr></thead>
+    <tbody id="rename-preview"></tbody></table>
+  </div>
+  <button id="rename-export" disabled>下載已改名 ZIP</button>
+  <p class="detail">ZIP 包含改名後的副本。瀏覽器版每批上限為 250 MB。</p>

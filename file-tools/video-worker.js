@@ -20,33 +20,23 @@ self.onmessage = async ({ data }) => {
     const extension = /^\.[a-z0-9]{1,8}$/i.test(data.extension) ? data.extension.toLowerCase() : '';
     const inputName = '/input' + extension;
     ffmpeg.FS.writeFile(inputName, new Uint8Array(data.bytes), { canOwn: true });
-    const input = ['-i', inputName, '-map', '0:v:0', '-map', '0:a:0?'];
-    const compatibility = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'veryfast', '-c:a', 'aac'];
-    const fitEvenDimensions = 'scale=trunc(iw/2)*2:trunc(ih/2)*2';
-    const run = (options) => {
-      const code = ffmpeg.exec(...input, ...options, '-movflags', '+faststart', outputName);
-      ffmpeg.reset();
-      return code;
-    };
-    let code;
-    if (data.mode === 'copy') {
-      stage('正在轉為 MP4…');
-      code = run(['-c', 'copy']);
-      if (code !== 0) {
-        stage('正在嘗試轉換音訊並保留原畫質…');
-        code = run(['-c:v', 'copy', '-c:a', 'aac']);
-      }
-    } else {
-      stage('正在重新編碼影片…');
-      const options = data.mode === 'compress'
-        ? ['-crf', '28', '-vf', "scale=-2:trunc(min(ih\\,720)/2)*2", '-b:a', '96k']
-        : ['-crf', '21', '-vf', fitEvenDimensions, '-b:a', '128k'];
-      code = run([...compatibility, ...options]);
-    }
+    const compress = data.mode === 'compress';
+    const [maxWidth, maxHeight] = compress ? [1280, 720] : [1920, 1080];
+    // Fit within the selected bounds, preserving aspect ratio and even dimensions.
+    const fit = `scale=w='min(iw,${maxWidth})':h='min(ih,${maxHeight})':force_original_aspect_ratio=decrease:force_divisible_by=2`;
+    stage('正在製作 Windows 相容 MP4…');
+    const code = ffmpeg.exec(
+      '-fflags', '+genpts', '-i', inputName, '-map', '0:v:0', '-map', '0:a:0?',
+      '-vf', fit, '-fpsmax', '30', '-fps_mode', 'cfr', '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p', '-profile:v', 'main', '-level:v', '4.1', '-tag:v', 'avc1',
+      '-preset', 'veryfast', '-crf', compress ? '28' : '20',
+      '-maxrate', '12M', '-bufsize', '24M',
+      '-c:a', 'aac', '-profile:a', 'aac_low', '-ar', '48000', '-ac', '2',
+      '-b:a', compress ? '96k' : '128k',
+      '-avoid_negative_ts', 'make_zero', '-movflags', '+faststart', outputName
+    );
     if (code !== 0) {
-      throw new Error(data.mode === 'copy'
-        ? '快速轉檔失敗。可嘗試兼容模式，或從原廠播放器重新匯出影片。'
-        : '影片無法轉檔。請查看詳情，或從原廠播放器重新匯出影片。');
+      throw new Error('影片無法轉檔。請查看詳情，或從原廠播放器重新匯出影片。');
     }
     const output = ffmpeg.FS.readFile(outputName);
     if (!output.length) throw new Error('轉檔結果為空。請檢查來源影片。');

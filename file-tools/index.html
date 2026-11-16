@@ -1,61 +1,28 @@
+---
+layout: null
+---
 <!doctype html>
 <html lang="zh-Hant-HK">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>檔案工具 · Office 萬用小工具 v4.13</title>
-<link rel="stylesheet" href="style.css">
-<script src="app.js" defer></script>
+<title>檔案工具 · Office 萬用小工具 v4.14</title>
+<link rel="stylesheet" href="style.css?v=4.14">
+<script src="app.js?v=4.14" defer></script>
 </head>
-<body>
+<body class="file-tools-page">
 <header>
   <a href="../">← Office 萬用小工具</a>
   <h1>檔案工具</h1>
-  <p>v4.13 · 檔案在瀏覽器內處理</p>
+  <p>v4.14 · 檔案在瀏覽器內處理</p>
   <nav aria-label="檔案工具"><a href="#rename">批量改名</a><a href="#video">影片轉檔及壓縮</a></nav>
 </header>
 <main>
-<section id="rename" aria-labelledby="rename-title">
-  <h2 id="rename-title">批量改名</h2>
-  <p>JPG、JPEG、HEIC、HEIF 優先用 EXIF 拍攝時間。其他檔案及缺少拍攝時間的相片使用檔案修改時間。</p>
-  <label>選擇檔案 <input type="file" id="rename-files" multiple></label>
-  <div class="fields">
-    <label>命名格式
-      <select id="rename-format">
-        <option value="date-first">20261116 14 32 08_名稱</option>
-        <option value="name-first">名稱(261116 143208)</option>
-        <option value="sortable">20261116_143208_名稱</option>
-      </select>
-    </label>
-    <label>名稱 <input type="text" id="rename-name" maxlength="120" placeholder="留空沿用原檔名"></label>
-  </div>
-  <p id="rename-status" role="status">選檔後可預覽新檔名。</p>
-  <div id="rename-results" class="table-scroll" tabindex="0" aria-label="改名預覽" hidden>
-    <table><thead><tr><th scope="col">原檔名</th><th scope="col">新檔名</th><th scope="col">時間來源</th></tr></thead>
-    <tbody id="rename-preview"></tbody></table>
-  </div>
-  <button id="rename-export" disabled>下載已改名 ZIP</button>
-  <p class="detail">ZIP 包含改名後的副本。瀏覽器版每批上限為 250 MB。</p>
+<section id="rename" class="office-file-tool" aria-labelledby="rename-title">
+  {% include rename-tool.html %}
 </section>
-<section id="video" aria-labelledby="video-title">
-  <h2 id="video-title">影片轉檔及壓縮</h2>
-  <p>選擇一段 DAV、MP4、MOV、MKV、AVI 或 WebM，輸出 MP4。建議在電腦使用，每段上限 128 MB。</p>
-  <label>選擇影片 <input type="file" id="video-file" accept=".dav,.mp4,.mov,.mkv,.avi,.webm,video/*"></label>
-  <label>處理方式
-    <select id="video-mode">
-      <option value="copy">快速轉 MP4 · 保留原有畫質</option>
-      <option value="compatible">兼容 MP4 · H.264／AAC，保留解像度</option>
-      <option value="compress">減少檔案大小 · H.264／AAC，最高 720p</option>
-    </select>
-  </label>
-  <p class="detail">快速模式可保留 HEVC。遇到播放相容性問題可選兼容模式。壓縮後大小視乎原片。首次使用需下載約 31 MB 的轉檔引擎。</p>
-  <div class="actions">
-    <button id="video-start" disabled>開始處理</button>
-    <button id="video-cancel" hidden>取消</button>
-    <a id="video-download" class="button" hidden>下載 MP4</a>
-  </div>
-  <p id="video-status" role="status">DAV 支援視乎錄影機輸出的格式。</p>
-  <details id="video-diagnostics" hidden><summary>轉檔詳情</summary><pre id="video-log"></pre></details>
+<section id="video" class="office-file-tool" aria-labelledby="video-title">
+  {% include video-tool.html %}
 </section>
 </main>
 </body>
