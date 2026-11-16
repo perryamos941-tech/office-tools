@@ -17,6 +17,6 @@ layout: null
 </main>
 {%- endcapture -%}
 {%- capture policy -%}script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net/npm/exifreader@4.54.0/dist/exif-reader.js https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js; worker-src 'self' blob:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline'; media-src blob:;{%- endcapture -%}
-{%- capture styles -%}<link rel="stylesheet" href="file-tools/style.css?v=4.18"></head>{%- endcapture -%}
-{%- capture scripts -%}<script src="file-tools/app.js?v=4.18" defer></script></body></html>{%- endcapture -%}
-{{- office | replace_first: "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; frame-src 'self' blob:; style-src 'unsafe-inline';", policy | replace_first: 'v4.12</title>', 'v4.18</title>' | replace_first: '>v4.12</span>', '>v4.18</span>' | replace_first: '</head>', styles | replace_first: '</nav></div></header>', navigation | replace_first: '</main>', panels | replace_first: '</body></html>', scripts -}}
+{%- capture styles -%}<link rel="stylesheet" href="file-tools/style.css?v=4.19"></head>{%- endcapture -%}
+{%- capture scripts -%}<script src="file-tools/app.js?v=4.19" defer></script></body></html>{%- endcapture -%}
+{{- office | replace_first: "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; frame-src 'self' blob:; style-src 'unsafe-inline';", policy | replace_first: 'v4.12</title>', 'v4.19</title>' | replace_first: '>v4.12</span>', '>v4.19</span>' | replace_first: 'Office 萬用小工具 v4.12</strong>', 'Office 萬用小工具 v4.19</strong>' | replace_first: '2026-10-15 · PDF・圖片・OCR・QR 工具', 'PDF・條碼與 QR・圖片・影片・命名工具' | replace_first: '</head>', styles | replace_first: '</nav></div></header>', navigation | replace_first: '</main>', panels | replace_first: '</body></html>', scripts -}}

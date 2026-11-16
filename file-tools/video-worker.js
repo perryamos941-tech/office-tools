@@ -33,7 +33,7 @@ async function stampFilter(ffmpeg, stamp) {
   }
   const { position, mode, wall, offset } = stamp;
   const date = new Date(wall * 1000).toISOString().slice(0, 19).replace('T', ' ');
-  const zone = ' UTC+' + String(offset).padStart(2, '0') + ':00';
+  const zone = stamp.showZone === false ? '' : ' UTC+' + String(offset).padStart(2, '0') + ':00';
   const rolling = mode === 'clock';
   const text = rolling ? `%{pts:gmtime:${wall}:%Y-%m-%d %H\\:%M\\:%S}${zone}` : date + zone;
   ffmpeg.FS.writeFile(stampPath, new TextEncoder().encode(text));

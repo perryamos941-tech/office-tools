@@ -2,7 +2,7 @@
   'use strict';
 
   const byId = (id) => document.getElementById(id);
-  const videoWorkerURL = new URL('video-worker.js?v=4.18', document.currentScript.src);
+  const videoWorkerURL = new URL('video-worker.js?v=4.19', document.currentScript.src);
   const mib = 1024 * 1024;
   const scripts = new Map();
 
@@ -319,6 +319,8 @@
   const stampMode = byId('video-stamp-mode');
   const stampOptions = byId('video-stamp-options');
   const stampZone = byId('video-stamp-zone');
+  const stampConfirmAll = byId('video-stamp-confirm-all');
+  const stampReview = byId('video-stamp-review');
   const stampPosition = byId('video-stamp-position');
   const stampStyle = {
     font: byId('video-stamp-font'), color: byId('video-stamp-color'),
@@ -391,13 +393,43 @@
     return Number.isSafeInteger(unix) && unix >= 0 && unix < 253402214400 ? unix : null;
   }
 
+  function stampOffset() {
+    return stampZone.value === 'hidden' ? 8 : Number(stampZone.value);
+  }
+
+  function isStampPending(item) {
+    return item.state !== 'done' && pending?.item !== item;
+  }
+
+  function showStampReview() {
+    const clips = queue.filter(isStampPending);
+    const checked = clips.filter((item) => item.checked.checked).length;
+    stampConfirmAll.disabled = Boolean(batch || zipping) || !clips.some((item) =>
+      item.scanned && !item.checked.checked && parseStamp(item.time.value) !== null &&
+      (!item.conflict || item.manual));
+    stampReview.textContent = clips.length
+      ? `已確認 ${checked}／${clips.length} 段。時間有衝突或缺漏的影片須逐段核對。`
+      : '時間來源有衝突或缺少日期的影片須逐段核對。';
+  }
+
+  stampConfirmAll.onclick = () => {
+    if (batch || zipping || stampMode.value === 'off') return;
+    for (const item of queue) {
+      if (isStampPending(item) && item.scanned && parseStamp(item.time.value) !== null &&
+          (!item.conflict || item.manual)) item.checked.checked = true;
+    }
+    showStampReview();
+  };
+
   function showStampSource(item) {
-    const offset = Number(stampZone.value);
+    const offset = stampOffset();
     const internal = item.created === null ? '' : stampISO(item.created + offset * 3600);
     if (!item.manual) item.time.value = internal || item.filenameTime;
     let description = internal ? 'MP4／MOV 內嵌建立時間' : item.filenameTime ? '原始檔名' : '未找到時間，請填寫';
+    item.conflict = Boolean(internal && item.filenameTime &&
+      Math.abs(parseStamp(internal) - parseStamp(item.filenameTime)) > 2);
     if (internal && item.filenameTime) {
-      description += Math.abs(parseStamp(internal) - parseStamp(item.filenameTime)) <= 2
+      description += !item.conflict
         ? ' · 與檔名一致' : ' · 與檔名 ' + item.filenameTime.replace('T', ' ') + ' 不同，請核對';
     }
     item.source.textContent = item.manual ? '手動設定 · 自動建議：' + description : description;
@@ -405,7 +437,7 @@
 
   function getStamp(item) {
     return {
-      mode: stampMode.value, position: stampPosition.value, offset: Number(stampZone.value),
+      mode: stampMode.value, position: stampPosition.value, offset: stampOffset(), showZone: stampZone.value !== 'hidden',
       wall: parseStamp(item.time.value),
       font: stampStyle.font.value, color: stampStyle.color.value, background: stampStyle.background.value,
       size: Number(stampStyle.size.value), opacity: Number(stampStyle.opacity.value), outline: stampStyle.outline.checked
@@ -428,7 +460,8 @@
     stampOverlay.style.setProperty('--stamp-opacity', stamp.opacity + '%');
     stampOverlay.style.setProperty('--stamp-scale', String(stamp.size / 100));
     stampOverlay.textContent = stamp.wall === null ? '請先填寫日期及時間'
-      : stampISO(stamp.wall).replace('T', ' ') + ' UTC+' + String(stamp.offset).padStart(2, '0') + ':00';
+      : stampISO(stamp.wall).replace('T', ' ') +
+        (stamp.showZone ? ' UTC+' + String(stamp.offset).padStart(2, '0') + ':00' : '');
     stampCaption.textContent = '樣式示意 · ' + previewItem.file.name;
     stampPreview.hidden = false;
   }
@@ -453,6 +486,7 @@
     if (queue.includes(item)) {
       showStampSource(item);
       showStampPreview();
+      showStampReview();
     }
   }
 
@@ -464,6 +498,7 @@
       if (enabled && !item.scanned) readStampSources(item);
     }
     showStampPreview();
+    showStampReview();
   }
 
   stampPlayer.onloadedmetadata = () => {
@@ -485,12 +520,18 @@
     stampStyle.outline.checked = stampStyle.outline.defaultChecked;
     showStampPreview();
   };
+  let lastStampOffset = stampOffset();
   stampZone.onchange = () => {
-    for (const item of queue) {
-      item.checked.checked = false;
-      if (item.scanned) showStampSource(item);
+    const offset = stampOffset();
+    if (offset !== lastStampOffset) {
+      for (const item of queue.filter(isStampPending)) {
+        item.checked.checked = false;
+        if (item.scanned) showStampSource(item);
+      }
     }
+    lastStampOffset = offset;
     showStampPreview();
+    showStampReview();
   };
 
   function updateVideoControls() {
@@ -511,6 +552,7 @@
     videoZip.hidden = videoClear.hidden = !results.length;
     videoZip.disabled = busy || results.some((result) => result.blob.size > videoOutputLimit);
     videoClear.disabled = busy;
+    showStampReview();
   }
 
   function clearVideoResults() {
@@ -563,11 +605,13 @@
     row.append(stampFields);
     const item = { file, row, status, state: 'waiting', name: uniqueFilename(base, '.mp4', used),
       stampFields, time, checked, source, created: null, filenameTime: filenameStamp(file.name) };
+    checked.onchange = showStampReview;
     time.oninput = () => {
       item.manual = true;
       checked.checked = false;
       showStampSource(item);
       showStampPreview();
+      showStampReview();
     };
     preview.onclick = () => {
       if (previewItem !== item) {

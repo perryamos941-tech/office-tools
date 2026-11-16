@@ -17,8 +17,9 @@
   </label>
   <div id="video-stamp-options" hidden>
     <div class="fields">
-      <label>顯示時區
+      <label>時間顯示
         <select id="video-stamp-zone">
+          <option value="hidden">不顯示時區（按香港時間）</option>
           <option value="8">香港（UTC+08:00）</option>
           <option value="9">日本（UTC+09:00）</option>
           <option value="0">UTC（UTC+00:00）</option>
@@ -53,6 +54,8 @@
     </div>
     <button type="button" id="video-stamp-style-reset">重設樣式</button>
     <p class="detail">請對照相簿確認每段影片的時間。檔名及手動輸入按所選時區理解，檔案修改時間不作推算。</p>
+    <div class="actions"><button type="button" id="video-stamp-confirm-all" disabled>一鍵確認可用時間</button></div>
+    <p id="video-stamp-review" role="status" class="detail">時間來源有衝突或缺少日期的影片須逐段核對。</p>
   </div>
   <p class="detail">影片、拍攝時間及輸出全程在此裝置處理。首次操作只下載轉檔元件。</p>
   <div class="actions">
