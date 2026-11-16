@@ -2,7 +2,7 @@
   'use strict';
 
   const byId = (id) => document.getElementById(id);
-  const videoWorkerURL = new URL('video-worker.js?v=4.22', document.currentScript.src);
+  const fileToolsURL = new URL('./', document.currentScript.src);
   const mib = 1024 * 1024;
   const scripts = new Map();
 
@@ -636,6 +636,96 @@
     return parts.map((part) => String(part).padStart(2, '0')).join(':');
   }
 
+  const stampFonts = ['stamp-font.ttf', 'stamp-sans-bold.ttf', 'stamp-serif.ttf'];
+  let verifiedAssets;
+
+  async function downloadVideoAssets() {
+    const manifestResponse = await fetch(new URL('core-manifest.json?v=4.23', fileToolsURL));
+    if (!manifestResponse.ok) throw new Error('無法載入轉檔元件清單。');
+    const { assets } = await manifestResponse.json();
+    const core = async ({ url, integrity }) => {
+      const response = await fetch(url, {
+        integrity, mode: 'cors', credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer'
+      });
+      if (!response.ok) throw new Error('無法下載轉檔元件。');
+      return response.arrayBuffer();
+    };
+    const font = async (name) => {
+      const response = await fetch(new URL(name, fileToolsURL));
+      if (!response.ok) throw new Error('無法下載時間戳字型。');
+      return [name, await response.arrayBuffer()];
+    };
+    const [js, wasm, fonts] = await Promise.all([
+      core(assets.js), core(assets.wasm), Promise.all(stampFonts.map(font))
+    ]);
+    return { js, wasm, fonts: Object.fromEntries(fonts) };
+  }
+
+  async function openVideoWorker(signal) {
+    verifiedAssets ??= downloadVideoAssets().catch(() => {
+      verifiedAssets = undefined;
+      throw new Error('無法下載或驗證轉檔元件，已停止處理。請稍後重試。');
+    });
+    let cancelDownload;
+    const cancelled = new Promise((resolve, reject) => {
+      cancelDownload = () => reject(signal.reason);
+      signal.addEventListener('abort', cancelDownload, { once: true });
+    });
+    let assets;
+    try { assets = await Promise.race([verifiedAssets, cancelled]); }
+    finally { signal.removeEventListener('abort', cancelDownload); }
+    signal.throwIfAborted();
+    return new Promise((resolve, reject) => {
+      const frame = document.createElement('iframe');
+      frame.hidden = true;
+      frame.title = '隔離轉檔引擎';
+      frame.setAttribute('sandbox', 'allow-scripts');
+      frame.src = new URL('video-sandbox.html?v=4.23', fileToolsURL).href;
+      const channel = new MessageChannel();
+      const api = {
+        onmessage: null,
+        onerror: null,
+        postMessage(data, transfer) { channel.port1.postMessage(data, transfer); },
+        terminate() {
+          channel.port1.postMessage({ type: 'close' });
+          channel.port1.close();
+          frame.remove();
+        }
+      };
+      const settle = () => {
+        clearTimeout(timer);
+        signal.removeEventListener('abort', abort);
+      };
+      const fail = (error) => {
+        settle();
+        api.terminate();
+        reject(error);
+      };
+      const abort = () => fail(signal.reason);
+      const timer = setTimeout(() => fail(new Error('隔離轉檔引擎啟動逾時。')), 45000);
+      signal.addEventListener('abort', abort, { once: true });
+      frame.onerror = () => fail(new Error('無法載入隔離轉檔頁。'));
+      frame.onload = () => {
+        try {
+          // The sandbox has an opaque origin. Its boot script checks the parent's origin and source.
+          // The startup message contains public assets only. Media is sent on the private port after readiness.
+          frame.contentWindow.postMessage({ type: 'office-worker-init', assets }, '*', [channel.port2]);
+        } catch (error) { fail(error); }
+      };
+      channel.port1.onmessage = ({ data }) => {
+        if (data.type === 'ready') {
+          settle();
+          channel.port1.onmessage = (event) => {
+            if (event.data.type === 'worker-error') api.onerror?.(event);
+            else api.onmessage?.(event);
+          };
+          resolve(api);
+        } else if (data.type === 'worker-error') fail(new Error(data.message));
+      };
+      document.body.append(frame);
+    });
+  }
+
   async function convertVideo(item, mode, signal, worker, stamp) {
     const bytes = await item.file.arrayBuffer();
     signal.throwIfAborted();
@@ -646,9 +736,19 @@
       const show = () => {
         item.status.textContent = `${message} · 已用 ${videoClock((performance.now() - started) / 1000)}`;
       };
+      let watchdog;
+      const timeout = () => {
+        clearTimeout(watchdog);
+        watchdog = setTimeout(() => {
+          const error = new Error('轉檔逾時，已停止此影片。可縮短影片後再試。');
+          error.restart = true;
+          settle(reject, error);
+        }, 120000);
+      };
       const timer = setInterval(show, 1000);
       const settle = (callback, value) => {
         clearInterval(timer);
+        clearTimeout(watchdog);
         signal.removeEventListener('abort', abort);
         worker.onmessage = worker.onerror = null;
         callback(value);
@@ -660,6 +760,7 @@
         settle(reject, error);
       };
       worker.onmessage = ({ data }) => {
+        timeout();
         if (data.type === 'stage') message = data.message;
         if (data.type === 'progress') {
           message = `已處理片長 ${videoClock(data.seconds)}`;
@@ -673,6 +774,7 @@
         } else show();
       };
       try {
+        timeout();
         worker.postMessage({ bytes, extension: splitName(item.file.name)[1], mode, stamp }, [bytes]);
       } catch (error) {
         settle(reject, error);
@@ -754,7 +856,10 @@
             pending = undefined;
           } else {
             if (!item.file.size || item.file.size > 128 * mib) throw new Error('影片須大於 0 且不超過 128 MB。');
-            worker ??= new Worker(videoWorkerURL);
+            if (!worker) {
+              item.status.textContent = '正在驗證並啟動隔離轉檔引擎…';
+              worker = await openVideoWorker(signal);
+            }
             const output = await convertVideo(item, mode, signal, worker, stamping ? getStamp(item) : undefined);
             signal.throwIfAborted();
             blob = new Blob([output], { type: 'video/mp4' });

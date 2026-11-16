@@ -1,0 +1,42 @@
+---
+layout: null
+---
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob: 'wasm-unsafe-eval'; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>影片處理隔離區</title>
+</head>
+<body>
+<script type="text/plain" id="office-worker-source">{% include_relative video-worker.js %}</script>
+<script>
+'use strict';
+const site = new URL(location.href).origin;
+addEventListener('message', function initialize(event) {
+  if (event.source !== parent || event.origin !== site ||
+      event.data?.type !== 'office-worker-init' || event.ports.length !== 1) return;
+  removeEventListener('message', initialize);
+  const port = event.ports[0];
+  const source = document.getElementById('office-worker-source').textContent;
+  const url = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
+  let worker;
+  try {
+    worker = new Worker(url);
+    worker.onerror = () => port.postMessage({ type: 'worker-error', message: '隔離轉檔引擎中斷。' });
+    worker.onmessage = ({ data }) => port.postMessage(data, data.output ? [data.output.buffer] : []);
+    port.onmessage = ({ data }) => {
+      if (data?.type === 'close') { worker.terminate(); port.close(); return; }
+      worker.postMessage(data, data?.bytes ? [data.bytes] : []);
+    };
+    const assets = event.data.assets;
+    worker.postMessage({ type: 'initialize', assets }, [assets.js, assets.wasm, ...Object.values(assets.fonts)]);
+  } catch {
+    port.postMessage({ type: 'worker-error', message: '無法啟動隔離轉檔引擎。' });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+});
+</script>
+</body>
+</html>

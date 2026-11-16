@@ -4,6 +4,10 @@
 
 [開啟 Office 萬用小工具](https://perryamos941-tech.github.io/office-tools/) · [開啟批量改名與影片工具](https://perryamos941-tech.github.io/office-tools/file-tools/)
 
+## v4.23
+
+影片工具升級至 FFmpeg 9.0.2，處理區與頁面隔離並禁止網絡請求。[資安檢查及託管設定](SECURITY.md)。
+
 ## v4.22
 
 影片轉檔引擎的 JavaScript 和 WebAssembly 現於載入前驗證 SHA-384 完整性。

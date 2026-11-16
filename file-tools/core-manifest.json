@@ -1,0 +1,17 @@
+{
+  "npm": "@project516/ffmpeg-wasm-core",
+  "version": "0.18.0",
+  "ffmpeg": "9.0.2",
+  "sourceCommit": "90d9b9e9f8b45fd11d6b531bc63d89778afdce23",
+  "ffmpegCommit": "946fcce07b6dcd0331c8cc609192aeff5e1924f8",
+  "assets": {
+    "js": {
+      "url": "https://cdn.jsdelivr.net/npm/@project516/ffmpeg-wasm-core@0.18.0/dist/umd/ffmpeg-core.js",
+      "integrity": "sha384-2VNZ4DKiYnfQceDqvictYW5vQso+aYafDtkkWWIUcpC2GfZEvznonWj/8uS/qZ1b"
+    },
+    "wasm": {
+      "url": "https://cdn.jsdelivr.net/npm/@project516/ffmpeg-wasm-core@0.18.0/dist/umd/ffmpeg-core.wasm",
+      "integrity": "sha384-oEHGbLYE0P92YGCrWFkJvou/ZCVQ/3Ua950RwK0e0uO46Q0QShi6oieg1Hw0ymaU"
+    }
+  }
+}

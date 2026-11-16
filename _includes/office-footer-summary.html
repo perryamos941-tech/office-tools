@@ -7,5 +7,5 @@
 <p><a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection">GitHub Pages 資料收集說明</a> · <a href="https://github.com/jsdelivr/jsdelivr/blob/master/Privacy%20Policy.md">jsDelivr 私隱政策</a> · <a href="https://github.com/perryamos941-tech/office-tools/blob/main/LICENSE">專案 MIT 授權</a></p>
 <details>
   <summary>v{{ site.data.office.version }} 更新內容</summary>
-  <p>影片工具在載入轉檔引擎前，會驗證 JavaScript 和 WebAssembly 元件的 SHA-384 完整性。若驗證不通過，會停止轉檔。</p>
+  <p>影片工具使用 FFmpeg 9.0.2，先驗證轉檔元件，再在禁止網絡連線的隔離區處理影片。</p>
 </details>

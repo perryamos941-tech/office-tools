@@ -1,0 +1,20 @@
+name: Dependency and integrity audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 2 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - 'security/**'
+      - 'file-tools/core-manifest.json'
+      - '.github/workflows/security-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: python3 security/audit.py

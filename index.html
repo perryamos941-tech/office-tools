@@ -50,9 +50,12 @@ layout: null
 </main>
 {%- endcapture -%}
 {%- capture policy -%}script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net/npm/exifreader@4.54.0/dist/exif-reader.js https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js; worker-src 'self' blob:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline'; media-src blob:;{%- endcapture -%}
-{%- capture styles -%}<link rel="stylesheet" href="file-tools/style.css?v={{ site.data.office.version }}"><script src="assets/office-upgrades.js?v={{ site.data.office.version }}"></script></head>{%- endcapture -%}
+{%- capture styles -%}<link rel="stylesheet" href="file-tools/style.css?v={{ site.data.office.version }}"><script src="assets/office-top-level.js?v={{ site.data.office.version }}"></script><script src="assets/office-upgrades.js?v={{ site.data.office.version }}"></script></head>{%- endcapture -%}
+{%- capture core_connection -%}connect-src 'self' blob: data: https://cdn.jsdelivr.net/npm/@project516/ffmpeg-wasm-core@0.18.0/dist/umd/;{%- endcapture -%}
 {%- capture scripts -%}<script src="file-tools/app.js?v={{ site.data.office.version }}" defer></script></body></html>{%- endcapture -%}
 {{- office
+  | replace_first: '<html lang=', '<html hidden lang='
+  | replace_first: "connect-src 'self' blob: data:;", core_connection
   | replace_first: 'id="boot" role="status"', 'id="boot" role="status" hidden'
   | remove_first: old_boot
   | replace: 'required();', 'await ensureOfficeEngines();'

@@ -2,13 +2,14 @@
 layout: null
 ---
 <!doctype html>
-<html lang="zh-Hant-HK">
+<html hidden lang="zh-Hant-HK">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net/npm/exifreader@4.54.0/dist/exif-reader.js https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js; worker-src 'self'; style-src 'self'; font-src 'self'; media-src blob:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net/npm/exifreader@4.54.0/dist/exif-reader.js https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js; worker-src 'self'; frame-src 'self'; connect-src 'self' https://cdn.jsdelivr.net/npm/@project516/ffmpeg-wasm-core@0.18.0/dist/umd/; style-src 'self'; font-src 'self'; media-src blob:; base-uri 'none'; form-action 'none'">
 <title>檔案工具 · Office 萬用小工具 v{{ site.data.office.version }}</title>
 <link rel="stylesheet" href="style.css?v={{ site.data.office.version }}">
+<script src="../assets/office-top-level.js?v={{ site.data.office.version }}"></script>
 <script src="app.js?v={{ site.data.office.version }}" defer></script>
 </head>
 <body class="file-tools-page">

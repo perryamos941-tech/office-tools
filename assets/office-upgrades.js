@@ -8,7 +8,7 @@ function loadOfficeAsset(file, stylesheet = false) {
   if (officeAssets.has(file)) return officeAssets.get(file);
   const pending = new Promise((resolve, reject) => {
     const element = document.createElement(stylesheet ? 'link' : 'script');
-    const url = new URL(file + '?v=4.22', officeAssetRoot).href;
+    const url = new URL(file + '?v=4.23', officeAssetRoot).href;
     if (stylesheet) { element.rel = 'stylesheet'; element.href = url; }
     else element.src = url;
     element.onload = resolve;

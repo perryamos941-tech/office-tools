@@ -1,0 +1,18 @@
+{
+  "packages": [
+    {"name":"pdfjs-dist","version":"6.4.299","ecosystem":"npm"},
+    {"name":"pdf-lib","version":"1.17.1","ecosystem":"npm"},
+    {"name":"bwip-js","version":"4.7.0","ecosystem":"npm"},
+    {"name":"jsqr","version":"1.4.0","ecosystem":"npm"},
+    {"name":"jszip","version":"3.10.1","ecosystem":"npm"},
+    {"name":"exifr","version":"7.1.3","ecosystem":"npm"},
+    {"name":"exifreader","version":"4.54.0","ecosystem":"npm"},
+    {"name":"heic-to","version":"1.6.5","ecosystem":"npm"},
+    {"name":"tesseract.js","version":"6.0.1","ecosystem":"npm"},
+    {"name":"tesseract.js-core","version":"6.0.0","ecosystem":"npm"}
+  ],
+  "cdn": [
+    {"url":"https://cdn.jsdelivr.net/npm/exifreader@4.54.0/dist/exif-reader.js","integrity":"sha384-W9qlT1IDpfJok8mDCTyj4r5xtmRbGHfjuwJqezhTEDLOPpr84MUIgJBHasEjUh83"},
+    {"url":"https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js","integrity":"sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"}
+  ]
+}
