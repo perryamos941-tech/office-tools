@@ -2,7 +2,7 @@
   'use strict';
 
   const byId = (id) => document.getElementById(id);
-  const videoWorkerURL = new URL('video-worker.js?v=4.19', document.currentScript.src);
+  const videoWorkerURL = new URL('video-worker.js?v=4.20', document.currentScript.src);
   const mib = 1024 * 1024;
   const scripts = new Map();
 
@@ -119,6 +119,7 @@
   const renameStatus = byId('rename-status');
   const renameExport = byId('rename-export');
   const renameResults = byId('rename-results');
+  const renameReviewOptions = byId('rename-review-options');
   const renamePreview = byId('rename-preview');
   let scan = 0;
   let scannedFiles = [];
@@ -207,6 +208,7 @@
     const shown = rows.childElementCount;
     renamePreview.replaceChildren(rows);
     renameResults.hidden = !shown;
+    renameReviewOptions.hidden = !ordered.length;
     renameExport.disabled = !exportPlan.length || selectedCount !== exportPlan.length;
     renameStatus.textContent = !ordered.length ? fileStatus
       : selectedCount !== exportPlan.length ? '請填寫所需的日期、時間及有效的偏移分鐘。'
@@ -684,7 +686,9 @@
     link.href = url;
     link.download = item.name;
     link.textContent = '下載 MP4';
-    results.push({ name: item.name, blob, url, link });
+    const result = { name: item.name, blob, url, link, downloadRequested: false };
+    link.addEventListener('click', () => { result.downloadRequested = true; });
+    results.push(result);
     item.row.append(link);
     item.state = 'done';
     item.status.textContent = `已完成 · ${(blob.size / mib).toFixed(2)} MB` +
@@ -813,6 +817,7 @@
       link.href = url;
       link.download = `converted-videos-${String(volume).padStart(2, '0')}.zip`;
       link.click();
+      for (const result of results) result.downloadRequested = true;
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
       videoStatus.textContent = error.message;
@@ -821,4 +826,25 @@
       updateVideoControls();
     }
   };
+  for (const input of [renameFiles, videoFile]) {
+    const drop = byId(input.id + '-drop');
+    drop.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      if (!input.disabled) drop.classList.add('drag');
+    });
+    drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+    drop.addEventListener('drop', (event) => {
+      event.preventDefault();
+      drop.classList.remove('drag');
+      if (input.disabled || !event.dataTransfer?.files.length) return;
+      input.files = event.dataTransfer.files;
+      input.dispatchEvent(new Event('change'));
+    });
+  }
+
+  window.addEventListener('beforeunload', (event) => {
+    if (!batch && !zipping && !pending && results.every((result) => result.downloadRequested)) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 })();

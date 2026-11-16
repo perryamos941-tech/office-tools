@@ -1,0 +1,7 @@
+---
+layout: null
+---
+{%- capture source -%}{% include office-base.html %}{%- endcapture -%}
+{%- assign parts = source | split: '@font-face{font-family:OfficeCJK;' -%}
+{%- assign css = parts[1] | split: '</style>' -%}
+@font-face{font-family:OfficeCJK;{{ css[0] }}

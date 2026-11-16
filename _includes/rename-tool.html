@@ -1,6 +1,11 @@
-<h2 id="rename-title">批量改名</h2>
-  <p>JPG、JPEG、HEIC、HEIF 優先用 EXIF 拍攝時間。其他檔案及缺少拍攝時間的相片使用檔案修改時間。</p>
-  <label>選擇檔案 <input type="file" id="rename-files" multiple></label>
+<div class="intro"><div><h2 id="rename-title">批量改名</h2><p class="muted">按拍攝或檔案時間命名，先核對再下載 ZIP。</p></div></div>
+<div class="office-flow">
+  <div class="drop office-file-drop" id="rename-files-drop">
+    <label for="rename-files"><span class="step">1</span> 選擇或拖入檔案</label>
+    <input type="file" id="rename-files" multiple>
+    <p class="note">相片優先用 EXIF 拍攝時間。每批最多 250 MB。</p>
+  </div>
+  <h3><span class="step">2</span> 選擇檔名格式</h3>
   <div class="fields">
     <label>命名排列
       <select id="rename-format">
@@ -11,6 +16,7 @@
     </label>
     <label>名稱 <input type="text" id="rename-name" maxlength="120" placeholder="留空沿用原檔名"></label>
   </div>
+  <details class="office-advanced"><summary>日期、時間及其他命名設定</summary>
   <div class="fields">
     <label>日期格式
       <select id="rename-date">
@@ -59,12 +65,17 @@
     <button type="button" id="rename-save-preset">儲存命名預設</button>
     <button type="button" id="rename-load-preset">套用已儲存預設</button>
   </div>
+  </details>
+  <h3><span class="step">3</span> 預覽及下載</h3>
+  <div id="rename-review-options" hidden>
   <label><span><input type="checkbox" id="rename-filter"> 只顯示原先用修改時間的檔案</span></label>
   <p class="detail">篩選只影響畫面。取消勾選「匯出」可排除檔案。逐檔指定時間會覆蓋批次設定。</p>
-  <p id="rename-status" role="status">選檔後可預覽新檔名。</p>
+  </div>
+  <p id="rename-status" role="status" class="status">選檔後可預覽新檔名。</p>
   <div id="rename-results" class="table-scroll" tabindex="0" aria-label="改名預覽" hidden>
     <table><thead><tr><th scope="col">匯出</th><th scope="col">原檔名</th><th scope="col">新檔名</th><th scope="col">採用時間</th><th scope="col">時間來源</th><th scope="col">逐檔指定時間</th></tr></thead>
     <tbody id="rename-preview"></tbody></table>
   </div>
-  <button id="rename-export" disabled>下載已改名 ZIP</button>
-  <p class="detail">ZIP 包含改名後的副本。瀏覽器版每批上限為 250 MB。</p>
+  <button class="primary" id="rename-export" disabled>下載已改名 ZIP</button>
+  <p class="detail">ZIP 包含改名後的副本。</p>
+</div>
