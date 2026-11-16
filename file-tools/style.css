@@ -86,3 +86,8 @@ header .tabs button { flex: 0 0 auto; }
 .stamp-frame span[data-position$="right"] { right: 2.5%; }
 #video-queue .stamp-settings { flex-basis: 100%; }
 #video-queue .stamp-settings label { margin-block: .3rem; }
+
+.file-tools-footer { color: var(--muted, #617480); padding-block: 1rem; border-top: 1px solid var(--line, #dce5e7); }
+.office-tool-notes { margin-block: .65rem; }
+.office-tool-notes summary { cursor: pointer; font-weight: 600; }
+.office-tool-notes a { color: var(--accent, #086a61); }

@@ -4,6 +4,10 @@
 
 [開啟 Office 萬用小工具](https://perryamos941-tech.github.io/office-tools/) · [開啟批量改名與影片工具](https://perryamos941-tech.github.io/office-tools/file-tools/)
 
+## v4.21
+
+影片和命名工具的補充說明、私隱及第三方授權集中於頁尾。
+
 ## v4.20
 
 首頁先載入介面。PDF、條碼和圖片首次執行時載入共用處理元件及字型，OCR 另按需載入。條碼支援貼上 Excel 兩欄及匯入 CSV／TSV，圖片可設定每張目標大小，影片處理中或仍有未下載成果時會提示離頁。

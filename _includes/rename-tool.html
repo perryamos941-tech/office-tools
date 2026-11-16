@@ -1,9 +1,8 @@
-<div class="intro"><div><h2 id="rename-title">批量改名</h2><p class="muted">按拍攝或檔案時間命名，先核對再下載 ZIP。</p></div></div>
+<div class="intro"><div><h2 id="rename-title">批量改名</h2></div></div>
 <div class="office-flow">
   <div class="drop office-file-drop" id="rename-files-drop">
     <label for="rename-files"><span class="step">1</span> 選擇或拖入檔案</label>
     <input type="file" id="rename-files" multiple>
-    <p class="note">相片優先用 EXIF 拍攝時間。每批最多 250 MB。</p>
   </div>
   <h3><span class="step">2</span> 選擇檔名格式</h3>
   <div class="fields">
@@ -69,7 +68,6 @@
   <h3><span class="step">3</span> 預覽及下載</h3>
   <div id="rename-review-options" hidden>
   <label><span><input type="checkbox" id="rename-filter"> 只顯示原先用修改時間的檔案</span></label>
-  <p class="detail">篩選只影響畫面。取消勾選「匯出」可排除檔案。逐檔指定時間會覆蓋批次設定。</p>
   </div>
   <p id="rename-status" role="status" class="status">選檔後可預覽新檔名。</p>
   <div id="rename-results" class="table-scroll" tabindex="0" aria-label="改名預覽" hidden>
@@ -77,5 +75,4 @@
     <tbody id="rename-preview"></tbody></table>
   </div>
   <button class="primary" id="rename-export" disabled>下載已改名 ZIP</button>
-  <p class="detail">ZIP 包含改名後的副本。</p>
 </div>
