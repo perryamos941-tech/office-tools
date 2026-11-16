@@ -2,7 +2,7 @@
   <p>JPG、JPEG、HEIC、HEIF 優先用 EXIF 拍攝時間。其他檔案及缺少拍攝時間的相片使用檔案修改時間。</p>
   <label>選擇檔案 <input type="file" id="rename-files" multiple></label>
   <div class="fields">
-    <label>命名格式
+    <label>命名排列
       <select id="rename-format">
         <option value="date-first">20261116 14 32 08_名稱</option>
         <option value="name-first">名稱(261116 143208)</option>
@@ -10,6 +10,39 @@
       </select>
     </label>
     <label>名稱 <input type="text" id="rename-name" maxlength="120" placeholder="留空沿用原檔名"></label>
+  </div>
+  <div class="fields">
+    <label>日期格式
+      <select id="rename-date">
+        <option value="compact">YYYYMMDD</option>
+        <option value="short">YYMMDD</option>
+        <option value="iso">YYYY-MM-DD</option>
+        <option value="dot">YYYY.MM.DD</option>
+        <option value="dmy">DD-MM-YYYY</option>
+        <option value="none">不加日期</option>
+      </select>
+    </label>
+    <label>時間格式
+      <select id="rename-clock">
+        <option value="h m s">HH MM SS</option>
+        <option value="hms">HHMMSS</option>
+        <option value="h-m-s">HH-MM-SS</option>
+        <option value="hm">HHMM</option>
+        <option value="h-m">HH-MM</option>
+        <option value="none">不加時間</option>
+      </select>
+    </label>
+    <label>時間來源
+      <select id="rename-source">
+        <option value="auto">優先用 EXIF 拍攝時間</option>
+        <option value="modified">檔案修改時間</option>
+        <option value="custom">全批使用自訂日期及時間</option>
+      </select>
+    </label>
+  </div>
+  <div class="fields" id="rename-custom" hidden>
+    <label>自訂日期 <input type="date" id="rename-custom-date"></label>
+    <label>自訂時間 <input type="time" id="rename-custom-time" step="1" value="00:00:00"></label>
   </div>
   <p id="rename-status" role="status">選檔後可預覽新檔名。</p>
   <div id="rename-results" class="table-scroll" tabindex="0" aria-label="改名預覽" hidden>

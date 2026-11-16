@@ -40,3 +40,8 @@
 
 header .tabs { flex-wrap: wrap; overflow: visible; }
 header .tabs button { flex: 0 0 auto; }
+
+#video-queue { list-style: none; padding: 0; }
+#video-queue li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .85rem; padding: .65rem 0; border-bottom: 1px solid #dbe3ef; overflow-wrap: anywhere; }
+#video-queue li strong, #video-queue li details { flex-basis: 100%; min-width: 0; }
+#video-queue a { color: #194ab2; text-decoration: underline; }

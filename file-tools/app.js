@@ -2,7 +2,7 @@
   'use strict';
 
   const byId = (id) => document.getElementById(id);
-  const videoWorkerURL = new URL('video-worker.js?v=4.14', document.currentScript.src);
+  const videoWorkerURL = new URL('video-worker.js?v=4.15', document.currentScript.src);
   const mib = 1024 * 1024;
   const scripts = new Map();
 
@@ -40,8 +40,8 @@
       date.getHours(), date.getMinutes(), date.getSeconds()].map((value) => String(value).padStart(2, '0'));
   }
 
-  async function fileTime(file) {
-    if (/\.(jpe?g|heic|heif)$/i.test(file.name)) {
+  async function fileTime(file, source) {
+    if (source === 'auto' && /\.(jpe?g|heic|heif)$/i.test(file.name)) {
       await loadLibrary(exifReader);
       try {
         const tags = globalThis.ExifReader.load(await file.arrayBuffer(), { expanded: true });
@@ -76,16 +76,40 @@
 
   function makeName(parts, name, format) {
     const [year, month, day, hour, minute, second] = parts;
-    const fullDate = year + month + day;
-    const clock = hour + minute + second;
-    if (format === 'name-first') return `${name}(${fullDate.slice(2)} ${clock})`;
-    if (format === 'sortable') return `${fullDate}_${clock}_${name}`;
-    return `${fullDate} ${hour} ${minute} ${second}_${name}`;
+    const dates = {
+      compact: year + month + day,
+      short: year.slice(2) + month + day,
+      iso: [year, month, day].join('-'),
+      dot: [year, month, day].join('.'),
+      dmy: [day, month, year].join('-')
+    };
+    const clock = renameClock.value === 'none' ? '' : renameClock.value.replace(/[hms]/g,
+      (token) => ({ h: hour, m: minute, s: second })[token]);
+    const stamp = [dates[renameDate.value], clock].filter(Boolean).join(format === 'sortable' ? '_' : ' ');
+    if (!stamp) return name;
+    return format === 'name-first' ? `${name}(${stamp})` : `${stamp}_${name}`;
+  }
+
+  function uniqueFilename(base, extension, used) {
+    const key = (filename) => filename.normalize('NFC').toLowerCase();
+    if (/^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(base)) base = '_' + base;
+    let output = base + extension;
+    for (let number = 2; used.has(key(output)); number++) {
+      output = base + '_' + String(number).padStart(2, '0') + extension;
+    }
+    used.add(key(output));
+    return output;
   }
 
   const renameFiles = byId('rename-files');
   const renameFormat = byId('rename-format');
   const renameName = byId('rename-name');
+  const renameDate = byId('rename-date');
+  const renameClock = byId('rename-clock');
+  const renameSource = byId('rename-source');
+  const customFields = byId('rename-custom');
+  const customDate = byId('rename-custom-date');
+  const customTime = byId('rename-custom-time');
   const renameStatus = byId('rename-status');
   const renameExport = byId('rename-export');
   const renameResults = byId('rename-results');
@@ -93,23 +117,33 @@
   let scan = 0;
   let scannedFiles = [];
   let exportPlan = [];
+  let fileStatus = renameStatus.textContent;
 
   function renderRenamePreview() {
+    const custom = renameSource.value === 'custom';
+    const needsDate = renameDate.value !== 'none';
+    const needsTime = renameClock.value !== 'none';
+    customFields.hidden = !custom;
+    customDate.disabled = !custom || !needsDate;
+    customTime.disabled = !custom || !needsTime;
+    const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(customDate.value);
+    const time = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(customTime.value);
+    const valid = !custom || ((!needsDate || date) && (!needsTime || time));
+    const customParts = [...(date?.slice(1) ?? ['0000', '00', '00']),
+      time?.[1] ?? '00', time?.[2] ?? '00', time?.[3] ?? '00'];
+    renameStatus.textContent = valid || !scannedFiles.length ? fileStatus : '請填寫自訂日期及時間所需欄位。';
     const used = new Set();
     const rows = document.createDocumentFragment();
-    exportPlan = scannedFiles.map(({ file, parts, source }) => {
+    exportPlan = (valid ? scannedFiles : []).map(({ file, parts, source }) => {
       const [original, extension] = splitName(file.name);
       const label = Array.from(safeName(renameName.value.trim() || original)).slice(0, 65).join('');
-      const base = makeName(parts, label, renameFormat.value);
+      const base = makeName(custom ? customParts : parts, label, renameFormat.value);
       const suffix = Array.from(safeName(extension || '_')).slice(0, 20).join('');
       const ext = extension ? suffix : '';
-      let output = base + ext;
-      for (let number = 2; used.has(output.normalize('NFC').toLowerCase()); number++) {
-        output = base + '_' + String(number).padStart(2, '0') + ext;
-      }
-      used.add(output.normalize('NFC').toLowerCase());
+      const output = uniqueFilename(base, ext, used);
       const row = document.createElement('tr');
-      for (const value of [file.name, output, source]) row.insertCell().textContent = value;
+      const shownSource = needsDate || needsTime ? (custom ? '自訂日期及時間' : source) : '—';
+      for (const value of [file.name, output, shownSource]) row.insertCell().textContent = value;
       rows.append(row);
       return { file, output };
     });
@@ -118,11 +152,19 @@
     renameExport.disabled = !exportPlan.length;
   }
 
-  renameFormat.onchange = renameName.oninput = renderRenamePreview;
-  renameFiles.onchange = async () => {
+  renameFormat.onchange = () => {
+    renameDate.value = renameFormat.value === 'name-first' ? 'short' : 'compact';
+    renameClock.value = renameFormat.value === 'date-first' ? 'h m s' : 'hms';
+    renderRenamePreview();
+  };
+  renameName.oninput = customDate.oninput = customTime.oninput = renderRenamePreview;
+  renameDate.onchange = renameClock.onchange = renderRenamePreview;
+
+  renameFiles.onchange = renameSource.onchange = async () => {
     const current = ++scan;
     const files = [...renameFiles.files];
     scannedFiles = [];
+    fileStatus = '選檔後可預覽新檔名。';
     renderRenamePreview();
     if (!files.length) {
       renameStatus.textContent = '選檔後可預覽新檔名。';
@@ -136,14 +178,16 @@
     try {
       const results = [];
       for (const file of files) {
-        const time = await fileTime(file);
+        const time = renameSource.value === 'custom' ? {} : await fileTime(file, renameSource.value);
         if (current !== scan) return;
         results.push({ file, ...time });
       }
       scannedFiles = results;
-      renderRenamePreview();
       const count = results.filter(({ source }) => source === 'EXIF 拍攝時間').length;
-      renameStatus.textContent = `已預覽 ${results.length} 個檔案，其中 ${count} 個使用 EXIF 拍攝時間。`;
+      fileStatus = renameSource.value === 'auto'
+        ? `已預覽 ${results.length} 個檔案，其中 ${count} 個使用 EXIF 拍攝時間。`
+        : `已預覽 ${results.length} 個檔案。`;
+      renderRenamePreview();
     } catch (error) {
       if (current === scan) renameStatus.textContent = error.message;
     }
@@ -151,7 +195,8 @@
 
   renameExport.onclick = async () => {
     const plan = exportPlan;
-    const controls = [renameFiles, renameFormat, renameName, renameExport];
+    const controls = [renameFiles, renameFormat, renameName, renameDate, renameClock, renameSource, customDate, customTime, renameExport];
+    const previous = controls.map((control) => control.disabled);
     controls.forEach((control) => { control.disabled = true; });
     renameStatus.textContent = '正在建立 ZIP…';
     try {
@@ -169,7 +214,7 @@
     } catch (error) {
       renameStatus.textContent = error.message;
     } finally {
-      controls.forEach((control) => { control.disabled = false; });
+      controls.forEach((control, index) => { control.disabled = previous[index]; });
     }
   };
 
@@ -177,89 +222,164 @@
   const videoMode = byId('video-mode');
   const videoStart = byId('video-start');
   const videoCancel = byId('video-cancel');
-  const videoDownload = byId('video-download');
+  const videoZip = byId('video-zip');
   const videoStatus = byId('video-status');
-  const videoLog = byId('video-log');
-  const videoDiagnostics = byId('video-diagnostics');
-  let activeWorker;
-  let videoURL;
+  const videoQueue = byId('video-queue');
+  const videoOutputLimit = 256 * mib;
+  let batch;
+  let results = [];
 
-  function resetVideoOutput() {
-    if (videoURL) URL.revokeObjectURL(videoURL);
-    videoURL = undefined;
-    videoDownload.removeAttribute('href');
-    videoDownload.hidden = true;
-    videoDiagnostics.hidden = true;
-    videoLog.textContent = '';
+  function clearVideoResults() {
+    for (const result of results) URL.revokeObjectURL(result.url);
+    results = [];
+    videoQueue.replaceChildren();
+    videoZip.hidden = true;
   }
 
-  function finishVideo() {
-    activeWorker?.terminate();
-    activeWorker = undefined;
-    videoFile.disabled = videoMode.disabled = false;
-    videoStart.disabled = !videoFile.files.length;
-    videoCancel.hidden = true;
+  function makeVideoRow(file) {
+    const row = document.createElement('li');
+    const name = document.createElement('strong');
+    const status = document.createElement('span');
+    name.textContent = file.name;
+    status.textContent = '等待轉檔';
+    row.append(name, status);
+    videoQueue.append(row);
+    return { file, row, status };
+  }
+
+  async function convertVideo({ file, status }, mode, signal) {
+    const bytes = await file.arrayBuffer();
+    signal.throwIfAborted();
+    const worker = new Worker(videoWorkerURL);
+    try {
+      return await new Promise((resolve, reject) => {
+        const abort = () => reject(signal.reason);
+        signal.addEventListener('abort', abort, { once: true });
+        const settle = (callback, value) => {
+          signal.removeEventListener('abort', abort);
+          callback(value);
+        };
+        worker.onerror = () => settle(reject, new Error('轉檔引擎中斷。'));
+        worker.onmessage = ({ data }) => {
+          if (data.type === 'stage') status.textContent = data.message;
+          if (data.type === 'done') settle(resolve, data.output);
+          if (data.type === 'error') {
+            const error = new Error(data.message);
+            error.log = data.log;
+            settle(reject, error);
+          }
+        };
+        try {
+          worker.postMessage({ bytes, extension: splitName(file.name)[1], mode }, [bytes]);
+        } catch (error) {
+          settle(reject, error);
+        }
+      });
+    } finally {
+      worker.terminate();
+    }
   }
 
   videoFile.onchange = () => {
-    resetVideoOutput();
-    videoStart.disabled = !videoFile.files.length;
-    videoStatus.textContent = videoFile.files[0]?.name || '請選擇影片。';
+    clearVideoResults();
+    const count = videoFile.files.length;
+    videoStart.disabled = !count || count > 20;
+    videoStatus.textContent = count > 20 ? '一次最多處理 20 段影片。'
+      : count ? `已選 ${count} 段影片。` : '請選擇影片。';
   };
 
   videoCancel.onclick = () => {
-    finishVideo();
-    videoStatus.textContent = '已取消處理。';
+    batch?.abort();
+    videoCancel.disabled = true;
+    videoStatus.textContent = '正在取消。已完成的影片可繼續下載。';
   };
 
   videoStart.onclick = async () => {
-    const file = videoFile.files[0];
-    if (!file || activeWorker) return;
-    resetVideoOutput();
-    if (!file.size || file.size > 128 * mib) {
-      videoStatus.textContent = '請選擇大於 0 且不超過 128 MB 的影片。';
-      return;
-    }
-    let worker;
-    try {
-      worker = new Worker(videoWorkerURL);
-    } catch {
-      videoStatus.textContent = '無法啟動轉檔。請透過 HTTPS 網頁在電腦瀏覽器開啟。';
-      return;
-    }
-    activeWorker = worker;
+    const files = [...videoFile.files];
+    if (!files.length || files.length > 20 || batch) return;
+    clearVideoResults();
+    batch = new AbortController();
+    const { signal } = batch;
+    const queue = files.map(makeVideoRow);
+    const used = new Set();
+    let outputSize = 0;
+    let failures = 0;
+    let storageFull = false;
     videoFile.disabled = videoMode.disabled = videoStart.disabled = true;
-    videoCancel.hidden = false;
-    videoStatus.textContent = '正在讀取影片及啟動轉檔引擎…';
-    const fail = (message) => {
-      finishVideo();
-      videoStatus.textContent = message;
-    };
-    worker.onerror = () => fail('轉檔引擎中斷。可嘗試用電腦瀏覽器處理較短影片。');
-    worker.onmessage = ({ data }) => {
-      if (activeWorker !== worker) return;
-      if (data.type === 'stage') videoStatus.textContent = data.message;
-      if (data.log) {
-        videoLog.textContent = data.log;
-        videoDiagnostics.hidden = false;
-      }
-      if (data.type === 'error') fail(data.message);
-      if (data.type === 'done') {
-        videoURL = URL.createObjectURL(new Blob([data.output], { type: 'video/mp4' }));
-        videoDownload.href = videoURL;
-        videoDownload.download = splitName(file.name)[0] + '.mp4';
-        videoDownload.hidden = false;
-        videoStatus.textContent = `已完成。原檔 ${(file.size / mib).toFixed(2)} MB，輸出 ${(data.output.byteLength / mib).toFixed(2)} MB。`;
-        finishVideo();
-      }
-    };
+    videoCancel.hidden = videoCancel.disabled = false;
     try {
-      const bytes = await file.arrayBuffer();
-      if (activeWorker === worker) {
-        worker.postMessage({ bytes, extension: splitName(file.name)[1], mode: videoMode.value }, [bytes]);
+      for (const [index, item] of queue.entries()) {
+        if (signal.aborted || storageFull) {
+          item.status.textContent = signal.aborted ? '已取消' : '未處理，請分批再試';
+          continue;
+        }
+        videoStatus.textContent = `正在處理第 ${index + 1}／${queue.length} 段影片…`;
+        item.status.textContent = '正在讀取影片…';
+        try {
+          if (!item.file.size || item.file.size > 128 * mib) throw new Error('影片須大於 0 且不超過 128 MB。');
+          const output = await convertVideo(item, videoMode.value, signal);
+          signal.throwIfAborted();
+          if (outputSize + output.byteLength > videoOutputLimit) {
+            storageFull = true;
+            throw new Error('批次輸出超過 256 MB，請分批或改用壓縮模式。');
+          }
+          const base = Array.from(safeName(splitName(item.file.name)[0])).slice(0, 65).join('');
+          const name = uniqueFilename(base, '.mp4', used);
+          const blob = new Blob([output], { type: 'video/mp4' });
+          const url = URL.createObjectURL(blob);
+          results.push({ name, blob, url });
+          outputSize += blob.size;
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = name;
+          link.textContent = '下載 MP4';
+          item.row.append(link);
+          item.status.textContent = `已完成 · ${(blob.size / mib).toFixed(2)} MB`;
+        } catch (error) {
+          if (signal.aborted) {
+            item.status.textContent = '已取消';
+            continue;
+          }
+          failures++;
+          item.status.textContent = error.message || '無法處理影片。';
+          if (error.log) {
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            const pre = document.createElement('pre');
+            summary.textContent = '轉檔詳情';
+            pre.textContent = error.log;
+            details.append(summary, pre);
+            item.row.append(details);
+          }
+        }
       }
-    } catch {
-      if (activeWorker === worker) fail('無法讀取影片。請確認檔案已下載到電腦。');
+    } finally {
+      const outcome = signal.aborted ? '已取消' : storageFull ? '已達批次輸出上限' : '處理結束';
+      videoStatus.textContent = `${outcome}。成功 ${results.length}／${queue.length} 段，失敗 ${failures} 段。`;
+      videoZip.hidden = !results.length;
+      videoFile.disabled = videoMode.disabled = videoStart.disabled = false;
+      videoCancel.hidden = true;
+      batch = undefined;
+    }
+  };
+
+  videoZip.onclick = async () => {
+    videoFile.disabled = videoStart.disabled = videoZip.disabled = true;
+    try {
+      await loadLibrary(zipWriter);
+      const zip = new globalThis.JSZip();
+      for (const { name, blob } of results) zip.file(name, blob);
+      const archive = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+      const url = URL.createObjectURL(archive);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'converted-videos.zip';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      videoStatus.textContent = error.message;
+    } finally {
+      videoFile.disabled = videoStart.disabled = videoZip.disabled = false;
     }
   };
 })();
