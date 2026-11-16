@@ -7,9 +7,9 @@ layout: null
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net/npm/exifreader@4.54.0/dist/exif-reader.js https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js; worker-src 'self'; style-src 'self'; font-src 'self'; media-src blob:; base-uri 'none'; form-action 'none'">
-<title>檔案工具 · Office 萬用小工具 v4.21</title>
-<link rel="stylesheet" href="style.css?v=4.21">
-<script src="app.js?v=4.21" defer></script>
+<title>檔案工具 · Office 萬用小工具 v{{ site.data.office.version }}</title>
+<link rel="stylesheet" href="style.css?v={{ site.data.office.version }}">
+<script src="app.js?v={{ site.data.office.version }}" defer></script>
 </head>
 <body class="file-tools-page">
 <header>
@@ -26,7 +26,7 @@ layout: null
   {% include video-tool.html %}
 </section>
 <footer class="file-tools-footer">
-  <strong>Office 萬用小工具 v4.21</strong>
+  {% include office-footer-summary.html tools="影片・命名工具" %}
   {% include file-tools-footer.html font_license="stamp-font-LICENSE.txt" %}
 </footer>
 </main>

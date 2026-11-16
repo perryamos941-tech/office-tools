@@ -9,6 +9,9 @@ layout: null
 {%- assign legacy = before_engines[0] | remove_first: '<script>' -%}
 {%- assign footer_split = legacy | split: '<footer>' -%}
 {%- assign footer_tail = footer_split[1] | split: '</footer>' -%}
+{%- assign legacy_licences = footer_tail[0] | split: '<p>內置 PDF.js' -%}
+{%- assign release_title = site.data.office.version | prepend: 'v' | append: '</title>' -%}
+{%- assign release_label = site.data.office.version | prepend: '>v' | append: '</span>' -%}
 {%- capture office -%}{{ font[0] | replace_first: '"OfficeCJK",system-ui', 'system-ui' }}</style><script>{{ footer_split[0] }}{{ footer_tail[1] }}<script id="app-code">{{ app[1] }}{%- endcapture -%}
 {%- capture pdf_tip -%}
 <p class="note">保留文字：可搜尋及複製。整頁轉圖片：適合掃描件，會失去可搜尋文字及互動內容。確認下載前會比較相同頁面的大小。</p>
@@ -39,14 +42,16 @@ layout: null
 <section id="panel-rename" class="office-file-tool" role="tabpanel" aria-labelledby="tab-rename" hidden>
   {% include rename-tool.html %}
 </section>
-<footer>{{ footer_tail[0] }}
+<footer>
+  {% include office-footer-summary.html tools="PDF・條碼與 QR・圖片・影片・命名工具" %}
+  <details><summary>01–03 第三方套件及使用聲明</summary><p>內置 PDF.js{{ legacy_licences[1] }}
   {% include file-tools-footer.html font_license="file-tools/stamp-font-LICENSE.txt" %}
 </footer>
 </main>
 {%- endcapture -%}
 {%- capture policy -%}script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net/npm/exifreader@4.54.0/dist/exif-reader.js https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js; worker-src 'self' blob:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline'; media-src blob:;{%- endcapture -%}
-{%- capture styles -%}<link rel="stylesheet" href="file-tools/style.css?v=4.21"><script src="assets/office-upgrades.js?v=4.21"></script></head>{%- endcapture -%}
-{%- capture scripts -%}<script src="file-tools/app.js?v=4.21" defer></script></body></html>{%- endcapture -%}
+{%- capture styles -%}<link rel="stylesheet" href="file-tools/style.css?v={{ site.data.office.version }}"><script src="assets/office-upgrades.js?v={{ site.data.office.version }}"></script></head>{%- endcapture -%}
+{%- capture scripts -%}<script src="file-tools/app.js?v={{ site.data.office.version }}" defer></script></body></html>{%- endcapture -%}
 {{- office
   | replace_first: 'id="boot" role="status"', 'id="boot" role="status" hidden'
   | remove_first: old_boot
@@ -62,4 +67,4 @@ layout: null
   | replace_first: 'return {size,quality,type,bg:', 'return {size,quality,type,target:officeImageTarget(),bg:'
   | replace_first: 'const b=await canvasBlob(c,s.type,s.quality);', 'const b=await officeImageBlob(c,s,x);'
   | replace_first: "x.stateCell.textContent='完成'+(x.warning?' · '+x.warning:'');", "x.stateCell.textContent='完成'+(x.warning?' · '+x.warning:'')+(x.targetWarning?' · '+x.targetWarning:'');"
-  | replace_first: "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; frame-src 'self' blob:; style-src 'unsafe-inline';", policy | replace_first: 'v4.12</title>', 'v4.21</title>' | replace_first: '>v4.12</span>', '>v4.21</span>' | replace_first: 'Office 萬用小工具 v4.12</strong>', 'Office 萬用小工具 v4.21</strong>' | replace_first: '2026-10-15 · PDF・圖片・OCR・QR 工具', 'PDF・條碼與 QR・圖片・影片・命名工具' | replace_first: '</head>', styles | replace_first: '</nav></div></header>', navigation | replace_first: '</main>', panels | replace_first: '</body></html>', scripts -}}
+  | replace_first: "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; frame-src 'self' blob:; style-src 'unsafe-inline';", policy | replace_first: 'v4.12</title>', release_title | replace_first: '>v4.12</span>', release_label | replace_first: '</head>', styles | replace_first: '</nav></div></header>', navigation | replace_first: '</main>', panels | replace_first: '</body></html>', scripts -}}
