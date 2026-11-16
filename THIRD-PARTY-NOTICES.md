@@ -10,3 +10,5 @@ Office 萬用小工具自有程式碼依 [MIT 授權](LICENSE) 提供。第三�
 | DejaVu 字型子集 | 等寬、粗體無襯線、襯線。[原授權及版權聲明](file-tools/stamp-font-LICENSE.txt) | [DejaVu Fonts](https://dejavu-fonts.github.io/) |
 
 影片工具從 jsDelivr 讀取原版 `@ffmpeg/core 0.12.10`。已核對該二進位檔回報 FFmpeg 5.1.4、Emscripten 3.1.40、`--enable-gpl` 和 `--enable-libx264`，與上列上游建置配方相符。第三方套件的其餘建置依賴列於上游 Dockerfile。
+
+下載的 UMD JavaScript 和 WASM 均透過 Fetch Subresource Integrity，以原版 npm 發行包計算出的 SHA-384 驗證後才載入。驗證失敗會停止轉檔。

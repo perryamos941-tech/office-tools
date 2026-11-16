@@ -2,7 +2,7 @@
   'use strict';
 
   const byId = (id) => document.getElementById(id);
-  const videoWorkerURL = new URL('video-worker.js?v=4.21', document.currentScript.src);
+  const videoWorkerURL = new URL('video-worker.js?v=4.22', document.currentScript.src);
   const mib = 1024 * 1024;
   const scripts = new Map();
 

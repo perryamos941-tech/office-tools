@@ -1,7 +1,15 @@
 'use strict';
 
-const coreURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js';
-const wasmURL = coreURL.replace(/\.js$/, '.wasm');
+// These hashes come from the integrity-checked upstream npm tarball.
+const coreBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/';
+const coreScript = {
+  name: 'ffmpeg-core.js',
+  integrity: 'sha384-sKfkiFtvUk+vexk+0EUhEh366190/4WpgUAsUvaxEfyg7+E1Zt5Y5hrsU808g8Q9'
+};
+const coreWasm = {
+  name: 'ffmpeg-core.wasm',
+  integrity: 'sha384-U1VDhkPYrM3wTCT4/vjSpSsKqG/UjljYrYCI4hBSJ02svbCkxuCi6U6u/peg5vpW'
+};
 const outputName = '/output.mp4';
 const fonts = new Map([
   ['mono', 'stamp-font.ttf'],
@@ -12,9 +20,30 @@ const stampPath = '/stamp.txt';
 const loadedFonts = new Set();
 let engine;
 
+async function verifiedCoreAsset({ name, integrity }) {
+  const response = await fetch(coreBase + name, {
+    integrity, mode: 'cors', credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer'
+  });
+  if (!response.ok) throw new Error('無法下載已驗證的轉檔元件：' + name);
+  return response.arrayBuffer();
+}
+
 async function loadEngine() {
-  if (!self.createFFmpegCore) importScripts(coreURL);
-  return self.createFFmpegCore({ mainScriptUrlOrBlob: coreURL + '#' + btoa(JSON.stringify({ wasmURL })) });
+  let script, wasmBinary;
+  try {
+    [script, wasmBinary] = await Promise.all([verifiedCoreAsset(coreScript), verifiedCoreAsset(coreWasm)]);
+  } catch {
+    throw new Error('無法下載或驗證轉檔元件，已停止處理。請稍後重試。');
+  }
+  const url = URL.createObjectURL(new Blob([script], { type: 'application/javascript' }));
+  try {
+    importScripts(url);
+    // Supply the verified bytes directly. The auxiliary locator never points at the CDN.
+    const localLocator = btoa(JSON.stringify({ wasmURL: 'verified-inline.wasm' }));
+    return await self.createFFmpegCore({ wasmBinary, mainScriptUrlOrBlob: url + '#' + localLocator });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function seconds(value) {
@@ -100,7 +129,7 @@ self.onmessage = async ({ data }) => {
     if (!output.length) throw new Error('轉檔結果為空。請檢查來源影片。');
     self.postMessage({ type: 'done', output, log: logs.join('\n') }, [output.buffer]);
   } catch (error) {
-    const message = logs.length ? error.message : '無法啟動轉檔。請檢查網絡及瀏覽器後重試。';
+    const message = error.message || '無法啟動轉檔。請檢查網絡及瀏覽器後重試。';
     self.postMessage({ type: 'error', message, log: [...logs, error.message].join('\n') });
   } finally {
     if (ffmpeg) {

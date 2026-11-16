@@ -4,6 +4,10 @@
 
 [開啟 Office 萬用小工具](https://perryamos941-tech.github.io/office-tools/) · [開啟批量改名與影片工具](https://perryamos941-tech.github.io/office-tools/file-tools/)
 
+## v4.22
+
+影片轉檔引擎的 JavaScript 和 WebAssembly 現於載入前驗證 SHA-384 完整性。
+
 ## v4.21
 
 影片和命名工具的補充說明、私隱及第三方授權集中於頁尾。
