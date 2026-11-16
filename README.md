@@ -46,4 +46,4 @@
 This tool runs entirely on the client-side (browser). No files are uploaded to any server.
 
 ## 📄 License
-MIT License
+自有程式碼採用 [MIT 授權](LICENSE)。第三方元件各自沿用原授權，詳見[第三方套件及授權](THIRD-PARTY-NOTICES.md)。
