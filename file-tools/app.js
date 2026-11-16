@@ -5,8 +5,8 @@ const mib = 1024 * 1024;
 const scripts = new Map();
 
 const exifReader = {
-  url: 'https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js',
-  integrity: 'sha384-KrOocIA+lZcNUz2MDavnT/FuX+CbTREJihUi0bp8QUSwhE2AkGTNpv2b7yMbBkx5'
+  url: 'https://cdn.jsdelivr.net/npm/exifreader@4.54.0/dist/exif-reader.js',
+  integrity: 'sha384-W9qlT1IDpfJok8mDCTyj4r5xtmRbGHfjuwJqezhTEDLOPpr84MUIgJBHasEjUh83'
 };
 const zipWriter = {
   url: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
@@ -42,8 +42,8 @@ async function fileTime(file) {
   if (/\.(jpe?g|heic|heif)$/i.test(file.name)) {
     await loadLibrary(exifReader);
     try {
-      const tags = await globalThis.exifr.parse(file, { pick: ['DateTimeOriginal'], reviveValues: false });
-      const match = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(tags?.DateTimeOriginal);
+      const tags = globalThis.ExifReader.load(await file.arrayBuffer(), { expanded: true });
+      const match = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(tags.exif?.DateTimeOriginal?.value?.[0]);
       if (match) {
         const [year, month, day, h, m, s] = match.slice(1).map(Number);
         const check = new Date(Date.UTC(year, month - 1, day, h, m, s));
