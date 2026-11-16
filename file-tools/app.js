@@ -2,7 +2,7 @@
   'use strict';
 
   const byId = (id) => document.getElementById(id);
-  const videoWorkerURL = new URL('video-worker.js?v=4.17', document.currentScript.src);
+  const videoWorkerURL = new URL('video-worker.js?v=4.18', document.currentScript.src);
   const mib = 1024 * 1024;
   const scripts = new Map();
 
@@ -320,6 +320,12 @@
   const stampOptions = byId('video-stamp-options');
   const stampZone = byId('video-stamp-zone');
   const stampPosition = byId('video-stamp-position');
+  const stampStyle = {
+    font: byId('video-stamp-font'), color: byId('video-stamp-color'),
+    background: byId('video-stamp-background'), size: byId('video-stamp-size'),
+    opacity: byId('video-stamp-opacity'), outline: byId('video-stamp-outline')
+  };
+  const stampStyleReset = byId('video-stamp-style-reset');
   const stampPreview = byId('video-stamp-preview');
   const stampPlayer = byId('video-stamp-player');
   const stampOverlay = byId('video-stamp-overlay');
@@ -400,20 +406,30 @@
   function getStamp(item) {
     return {
       mode: stampMode.value, position: stampPosition.value, offset: Number(stampZone.value),
-      wall: parseStamp(item.time.value)
+      wall: parseStamp(item.time.value),
+      font: stampStyle.font.value, color: stampStyle.color.value, background: stampStyle.background.value,
+      size: Number(stampStyle.size.value), opacity: Number(stampStyle.opacity.value), outline: stampStyle.outline.checked
     };
   }
 
   function showStampPreview() {
+    byId('video-stamp-size-value').value = stampStyle.size.value + '%';
+    byId('video-stamp-opacity-value').value = stampStyle.opacity.value + '%';
     if (!previewItem || stampMode.value === 'off') {
       stampPreview.hidden = true;
       return;
     }
     const stamp = getStamp(previewItem);
     stampOverlay.dataset.position = stamp.position;
+    stampOverlay.dataset.font = stamp.font;
+    stampOverlay.dataset.outline = String(stamp.outline);
+    stampOverlay.style.setProperty('--stamp-color', stamp.color);
+    stampOverlay.style.setProperty('--stamp-background', stamp.background);
+    stampOverlay.style.setProperty('--stamp-opacity', stamp.opacity + '%');
+    stampOverlay.style.setProperty('--stamp-scale', String(stamp.size / 100));
     stampOverlay.textContent = stamp.wall === null ? '請先填寫日期及時間'
       : stampISO(stamp.wall).replace('T', ' ') + ' UTC+' + String(stamp.offset).padStart(2, '0') + ':00';
-    stampCaption.textContent = '位置示意 · ' + previewItem.file.name;
+    stampCaption.textContent = '樣式示意 · ' + previewItem.file.name;
     stampPreview.hidden = false;
   }
 
@@ -457,6 +473,18 @@
   };
   stampMode.onchange = updateStampControls;
   stampPosition.onchange = showStampPreview;
+  for (const control of Object.values(stampStyle)) {
+    control.oninput = showStampPreview;
+    control.onchange = showStampPreview;
+  }
+  stampStyleReset.onclick = () => {
+    stampStyle.font.selectedIndex = 0;
+    for (const control of [stampStyle.color, stampStyle.background, stampStyle.size, stampStyle.opacity]) {
+      control.value = control.defaultValue;
+    }
+    stampStyle.outline.checked = stampStyle.outline.defaultChecked;
+    showStampPreview();
+  };
   stampZone.onchange = () => {
     for (const item of queue) {
       item.checked.checked = false;
@@ -469,6 +497,7 @@
     const busy = Boolean(batch || zipping);
     const count = videoFile.files.length;
     videoFile.disabled = videoMode.disabled = stampMode.disabled = stampZone.disabled = stampPosition.disabled = busy;
+    for (const control of [...Object.values(stampStyle), stampStyleReset]) control.disabled = busy;
     for (const item of queue) {
       item.time.disabled = item.checked.disabled = busy || item.state === 'done' || pending?.item === item;
     }
@@ -529,7 +558,7 @@
     confirmLabel.append(caption);
     const preview = document.createElement('button');
     preview.type = 'button';
-    preview.textContent = '預覽位置';
+    preview.textContent = '預覽樣式';
     stampFields.append(dateLabel, source, confirmLabel, preview);
     row.append(stampFields);
     const item = { file, row, status, state: 'waiting', name: uniqueFilename(base, '.mp4', used),

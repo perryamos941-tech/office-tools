@@ -33,6 +33,25 @@
         </select>
       </label>
     </div>
+    <div class="fields stamp-style">
+      <label>字體
+        <select id="video-stamp-font">
+          <option value="mono">等寬（巡查記錄）</option>
+          <option value="sans">黑體粗字</option>
+          <option value="serif">襯線</option>
+        </select>
+      </label>
+      <label>文字顏色 <input type="color" id="video-stamp-color" value="#ffffff"></label>
+      <label>底色 <input type="color" id="video-stamp-background" value="#000000"></label>
+      <label>字體大小 <output id="video-stamp-size-value">100%</output>
+        <input type="range" id="video-stamp-size" min="70" max="140" step="5" value="100">
+      </label>
+      <label>底色不透明度 <output id="video-stamp-opacity-value">70%</output>
+        <input type="range" id="video-stamp-opacity" min="0" max="100" step="5" value="70">
+      </label>
+      <label><span><input type="checkbox" id="video-stamp-outline"> 加黑色描邊</span></label>
+    </div>
+    <button type="button" id="video-stamp-style-reset">重設樣式</button>
     <p class="detail">請對照相簿確認每段影片的時間。檔名及手動輸入按所選時區理解，檔案修改時間不作推算。</p>
   </div>
   <p class="detail">影片、拍攝時間及輸出全程在此裝置處理。首次操作只下載轉檔元件。</p>

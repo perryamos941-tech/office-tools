@@ -46,13 +46,30 @@ header .tabs button { flex: 0 0 auto; }
 #video-queue li strong, #video-queue li details { flex-basis: 100%; min-width: 0; }
 #video-queue a { color: #194ab2; text-decoration: underline; }
 
+@font-face { font-family: Stamp Mono; src: url("stamp-font.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: Stamp Sans; src: url("stamp-sans-bold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: Stamp Serif; src: url("stamp-serif.ttf") format("truetype"); font-display: swap; }
+
+.stamp-style output { font-weight: normal; }
 .stamp-preview { margin: 1rem 0; max-width: 36rem; }
-.stamp-frame { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; background: #182335; }
+.stamp-frame { position: relative; display: grid; place-items: center; container-type: size; aspect-ratio: 16 / 9; background: #182335; }
 .stamp-frame video { display: block; width: 100%; height: 100%; position: absolute; object-fit: contain; }
-.stamp-frame span { position: absolute; margin: .65rem; padding: .2rem .4rem; color: #fff; background: #000b; font: clamp(.65rem, 2vw, .95rem) monospace; }
-.stamp-frame span[data-position^="top"] { top: 0; }
-.stamp-frame span[data-position^="bottom"] { bottom: 0; }
-.stamp-frame span[data-position$="left"] { left: 0; }
-.stamp-frame span[data-position$="right"] { right: 0; }
+.stamp-frame span {
+  position: absolute;
+  padding: .12em .22em;
+  color: var(--stamp-color, white);
+  background: color-mix(in srgb, var(--stamp-background, black) var(--stamp-opacity, 70%), transparent);
+  font-family: Stamp Mono, monospace;
+  font-size: calc(min(3.704cqw, 4.762cqh) * var(--stamp-scale, 1));
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.stamp-frame span[data-font="sans"] { font-family: Stamp Sans, sans-serif; }
+.stamp-frame span[data-font="serif"] { font-family: Stamp Serif, serif; }
+.stamp-frame span[data-outline="true"] { -webkit-text-stroke: .08em black; paint-order: stroke fill; }
+.stamp-frame span[data-position^="top"] { top: 3.5%; }
+.stamp-frame span[data-position^="bottom"] { bottom: 3.5%; }
+.stamp-frame span[data-position$="left"] { left: 2.5%; }
+.stamp-frame span[data-position$="right"] { right: 2.5%; }
 #video-queue .stamp-settings { flex-basis: 100%; }
 #video-queue .stamp-settings label { margin-block: .3rem; }

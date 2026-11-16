@@ -3,9 +3,13 @@
 const coreURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js';
 const wasmURL = coreURL.replace(/\.js$/, '.wasm');
 const outputName = '/output.mp4';
-const fontPath = '/stamp-font.ttf';
+const fonts = new Map([
+  ['mono', 'stamp-font.ttf'],
+  ['sans', 'stamp-sans-bold.ttf'],
+  ['serif', 'stamp-serif.ttf']
+]);
 const stampPath = '/stamp.txt';
-let fontLoaded = false;
+const loadedFonts = new Set();
 let engine;
 
 async function loadEngine() {
@@ -18,12 +22,14 @@ function seconds(value) {
 }
 
 async function stampFilter(ffmpeg, stamp) {
-  if (!fontLoaded) {
-    const url = new URL('stamp-font.ttf', self.location.href);
+  const file = fonts.get(stamp.font) || fonts.get('mono');
+  const fontPath = '/' + file;
+  if (!loadedFonts.has(file)) {
+    const url = new URL(file, self.location.href);
     const response = await fetch(url);
     if (!response.ok) throw new Error('無法載入日期時間字型，請重試。');
     ffmpeg.FS.writeFile(fontPath, new Uint8Array(await response.arrayBuffer()));
-    fontLoaded = true;
+    loadedFonts.add(file);
   }
   const { position, mode, wall, offset } = stamp;
   const date = new Date(wall * 1000).toISOString().slice(0, 19).replace('T', ' ');
@@ -33,9 +39,15 @@ async function stampFilter(ffmpeg, stamp) {
   ffmpeg.FS.writeFile(stampPath, new TextEncoder().encode(text));
   const x = position.endsWith('left') ? 'max(12,w*0.025)' : 'w-tw-max(12,w*0.025)';
   const y = position.startsWith('top') ? 'max(10,h*0.035)' : 'h-th-max(10,h*0.035)';
+  const scale = Number.isFinite(stamp.size) ? Math.min(140, Math.max(70, stamp.size)) / 100 : 1;
+  const opacity = Number.isFinite(stamp.opacity) ? Math.min(100, Math.max(0, stamp.opacity)) / 100 : .7;
+  const color = (value, fallback) => /^#[0-9a-f]{6}$/i.test(value) ? '0x' + value.slice(1) : fallback;
+  const textColor = color(stamp.color, 'white');
+  const background = color(stamp.background, 'black');
   return `drawtext=fontfile=${fontPath}:textfile=${stampPath}:` +
-    `expansion=${rolling ? 'normal' : 'none'}:x='${x}':y='${y}':fontsize='max(10,min(w/27,h/21))':` +
-    'fontcolor=white:box=1:boxcolor=black@0.70:boxborderw=3';
+    `expansion=${rolling ? 'normal' : 'none'}:x='${x}':y='${y}':fontsize='max(6,min(w/27,h/21)*${scale})':` +
+    `fontcolor=${textColor}:box=${opacity > 0 ? 1 : 0}:boxcolor=${background}@${opacity}:boxborderw=3:` +
+    `borderw=${stamp.outline ? 1 : 0}:bordercolor=black`;
 }
 
 self.onmessage = async ({ data }) => {
