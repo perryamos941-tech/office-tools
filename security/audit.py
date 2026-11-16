@@ -67,11 +67,14 @@ def advisory_scan(packages, core):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--hashes-only", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--hashes-only", action="store_true")
+    modes.add_argument("--advisories-only", action="store_true")
     arguments = parser.parse_args()
     inventory = read_json("security/dependencies.json")
     core = read_json("file-tools/core-manifest.json")
-    verify_assets([*core["assets"].values(), *inventory["cdn"]])
+    if not arguments.advisories_only:
+        verify_assets([*core["assets"].values(), *inventory["cdn"]])
     if not arguments.hashes_only and advisory_scan(inventory["packages"], core):
         raise SystemExit(1)
 

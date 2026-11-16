@@ -3,6 +3,8 @@
 `python3 security/audit.py` verifies the pinned CDN resources and queries OSV
 for the npm versions and FFmpeg source commit in the inventory. The scheduled
 GitHub workflow runs weekly and also runs when the inventory or core changes.
+Asset integrity and OSV advisories are reported as separate jobs. A matching
+advisory fails the OSV job even when all asset hashes match.
 An OSV result applies to the package or commit queried. Check the affected
 configuration against the browser build. No match can also indicate limited
 database coverage. This inventory covers the main runtime dependencies, with
