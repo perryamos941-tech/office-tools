@@ -1,8 +1,14 @@
-# Office 萬用小工具 v3.1 (Office Tools Pro)
+# Office 萬用小工具 (Office Tools Pro)
 
-一個純前端、隱私優先的辦公室生產力工具集合。無需安裝，單一 HTML 檔案即可運行。
+一個純前端的辦公室生產力工具集合。檔案在瀏覽器內處理。
 
-[👉 點擊這裡立即使用 (Live Demo)](https://你的帳號.github.io/你的專案名稱/)
+[開啟 PDF、條碼與圖片工具](https://perryamos941-tech.github.io/office-tools/) · [開啟批量改名與影片工具](https://perryamos941-tech.github.io/office-tools/file-tools/)
+
+## v4.13 檔案工具
+
+- **批量改名**支援 JPG／JPEG／HEIC／HEIF 的 EXIF 拍攝時間，以及其他檔案的修改時間。可沿用原名或輸入活動名稱，預覽後下載改名副本的 ZIP。每批最多 250 MB 及 3,000 個檔案。
+- **影片工具**支援單段影片轉 MP4。快速模式盡量保留原有影音，必要時將音訊轉成 AAC。兼容及壓縮模式輸出 H.264／AAC。每段最多 128 MB，建議使用電腦瀏覽器。DAV 支援視乎錄影機的匯出格式。
+- 檔案工具使用獨立頁面。處理元件按需從 CDN 載入，原始檔案在瀏覽器內處理。影片功能透過 HTTPS 或 localhost 開啟。
 
 ## 🚀 主要功能 (Features)
 
