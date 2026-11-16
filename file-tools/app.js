@@ -2,7 +2,7 @@
   'use strict';
 
   const byId = (id) => document.getElementById(id);
-  const videoWorkerURL = new URL('video-worker.js?v=4.15', document.currentScript.src);
+  const videoWorkerURL = new URL('video-worker.js?v=4.16', document.currentScript.src);
   const mib = 1024 * 1024;
   const scripts = new Map();
 
@@ -110,6 +110,12 @@
   const customFields = byId('rename-custom');
   const customDate = byId('rename-custom-date');
   const customTime = byId('rename-custom-time');
+  const renameOffset = byId('rename-offset');
+  const renameOverride = byId('rename-override');
+  const renameSequence = byId('rename-sequence');
+  const renameFilter = byId('rename-filter');
+  const savePreset = byId('rename-save-preset');
+  const loadPreset = byId('rename-load-preset');
   const renameStatus = byId('rename-status');
   const renameExport = byId('rename-export');
   const renameResults = byId('rename-results');
@@ -119,38 +125,114 @@
   let exportPlan = [];
   let fileStatus = renameStatus.textContent;
 
+  const modificationSource = '檔案修改時間';
+  const presetControls = [renameFormat, renameName, renameDate, renameClock, renameSource,
+    renameOffset, renameOverride, renameSequence, customDate, customTime];
+  const presetKey = 'office-tools.rename-preset';
+  const collator = new Intl.Collator('zh-HK', { numeric: true });
+
+  function offsetParts(parts, minutes) {
+    if (!minutes || !parts) return parts;
+    const [year, month, day, hour, minute, second] = parts.map(Number);
+    // UTC arithmetic preserves the camera's recorded wall-clock time.
+    const date = new Date(0);
+    date.setUTCFullYear(year, month - 1, day);
+    date.setUTCHours(hour, minute + minutes, second);
+    return [date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate(),
+      date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()]
+      .map((part, index) => String(part).padStart(index ? 2 : 4, '0'));
+  }
+
   function renderRenamePreview() {
     const custom = renameSource.value === 'custom';
     const needsDate = renameDate.value !== 'none';
     const needsTime = renameClock.value !== 'none';
-    customFields.hidden = !custom;
-    customDate.disabled = !custom || !needsDate;
-    customTime.disabled = !custom || !needsTime;
-    const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(customDate.value);
-    const time = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(customTime.value);
-    const valid = !custom || ((!needsDate || date) && (!needsTime || time));
-    const customParts = [...(date?.slice(1) ?? ['0000', '00', '00']),
-      time?.[1] ?? '00', time?.[2] ?? '00', time?.[3] ?? '00'];
-    renameStatus.textContent = valid || !scannedFiles.length ? fileStatus : '請填寫自訂日期及時間所需欄位。';
+    const override = custom ? 'none' : renameOverride.value;
+    const setDate = (custom || override === 'date') && needsDate;
+    const setClock = (custom || override === 'clock') && needsTime;
+    customFields.hidden = !(setDate || setClock);
+    customDate.disabled = !setDate;
+    customTime.disabled = !setClock;
+    renameOverride.disabled = renameOffset.disabled = custom;
+    const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(customDate.value)?.slice(1);
+    const time = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(customTime.value)?.slice(1);
+    const offset = Number(renameOffset.value);
+    const valid = (!setDate || date) && (!setClock || time) && (custom || renameOffset.validity.valid);
+    const placeholder = ['0000', '00', '00', '00', '00', '00'];
     const used = new Set();
     const rows = document.createDocumentFragment();
-    exportPlan = (valid ? scannedFiles : []).map(({ file, parts, source }) => {
+    const ordered = [...scannedFiles];
+    if (renameSequence.value === 'name') ordered.sort((a,b) => collator.compare(a.file.name,b.file.name));
+    const selectedCount = ordered.filter((entry) => !entry.excluded).length;
+    const digits = Math.max(3, String(selectedCount).length);
+    let sequence = 0;
+    exportPlan = [];
+
+    for (const entry of ordered) {
+      const { file, source, excluded, manual } = entry;
+      const chosen = manual ? manual.split(/[-T:]/) : null;
+      if (chosen?.length === 5) chosen.push('00');
+      const parts = chosen || [...(offsetParts(entry.parts, custom ? 0 : offset) || placeholder)];
+      if (!chosen && setDate && date) parts.splice(0, 3, ...date);
+      if (!chosen && setClock && time) parts.splice(3, 3, time[0], time[1], time[2] || '00');
       const [original, extension] = splitName(file.name);
       const label = Array.from(safeName(renameName.value.trim() || original)).slice(0, 65).join('');
-      const base = makeName(custom ? customParts : parts, label, renameFormat.value);
-      const suffix = Array.from(safeName(extension || '_')).slice(0, 20).join('');
-      const ext = extension ? suffix : '';
-      const output = uniqueFilename(base, ext, used);
+      let base = makeName(parts, label, renameFormat.value);
+      if (!excluded && renameSequence.value !== 'none') base += '_' + String(++sequence).padStart(digits, '0');
+      const ext = extension ? Array.from(safeName(extension)).slice(0, 20).join('') : '';
+      const output = !excluded && (valid || chosen) ? uniqueFilename(base, ext, used) : '—';
+      if (output !== '—') exportPlan.push({ file, output });
+      if (renameFilter.checked && source !== modificationSource) continue;
+
       const row = document.createElement('tr');
-      const shownSource = needsDate || needsTime ? (custom ? '自訂日期及時間' : source) : '—';
-      for (const value of [file.name, output, shownSource]) row.insertCell().textContent = value;
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.checked = !excluded;
+      check.setAttribute('aria-label', '匯出 ' + file.name);
+      check.onchange = () => { entry.excluded = !check.checked; renderRenamePreview(); };
+      row.insertCell().append(check);
+      const stamp = [needsDate ? parts.slice(0,3).join('-') : '', needsTime ? parts.slice(3).join(':') : ''].filter(Boolean).join(' ');
+      const timeSource = chosen ? '逐檔指定' : custom ? '全批自訂' :
+        [source, offset ? '已偏移' : '', override !== 'none' ? '已覆蓋' : ''].filter(Boolean).join(' · ');
+      for (const value of [file.name, output, valid || chosen ? stamp || '—' : '—', timeSource]) row.insertCell().textContent = value;
+      const input = document.createElement('input');
+      input.type = 'datetime-local';
+      input.step = '1';
+      input.value = manual || '';
+      input.setAttribute('aria-label', '指定 ' + file.name + ' 的日期時間');
+      input.onchange = () => { entry.manual = input.value; renderRenamePreview(); };
+      row.insertCell().append(input);
       rows.append(row);
-      return { file, output };
-    });
+    }
+    const shown = rows.childElementCount;
     renamePreview.replaceChildren(rows);
-    renameResults.hidden = !exportPlan.length;
-    renameExport.disabled = !exportPlan.length;
+    renameResults.hidden = !shown;
+    renameExport.disabled = !exportPlan.length || selectedCount !== exportPlan.length;
+    renameStatus.textContent = !ordered.length ? fileStatus
+      : selectedCount !== exportPlan.length ? '請填寫所需的日期、時間及有效的偏移分鐘。'
+      : `顯示 ${shown}／${ordered.length} 個檔案，將匯出 ${exportPlan.length} 個。`;
   }
+
+  savePreset.onclick = () => {
+    try {
+      localStorage.setItem(presetKey, JSON.stringify(presetControls.map((control) => control.value)));
+      renameStatus.textContent = '已儲存到此瀏覽器。';
+    } catch { renameStatus.textContent = '此瀏覽器無法儲存預設。'; }
+  };
+
+  loadPreset.onclick = async () => {
+    try {
+      const values = JSON.parse(localStorage.getItem(presetKey));
+      if (!Array.isArray(values) || values.length !== presetControls.length) {
+        renameStatus.textContent = '此瀏覽器未有已儲存的預設。';
+        return;
+      }
+      const source = renameSource.value;
+      presetControls.forEach((control, index) => { control.value = values[index]; });
+      if (source !== renameSource.value) await scanRenameFiles(true);
+      else renderRenamePreview();
+    } catch { renameStatus.textContent = '無法載入命名預設。'; }
+  };
 
   renameFormat.onchange = () => {
     renameDate.value = renameFormat.value === 'name-first' ? 'short' : 'compact';
@@ -158,9 +240,15 @@
     renderRenamePreview();
   };
   renameName.oninput = customDate.oninput = customTime.oninput = renderRenamePreview;
-  renameDate.onchange = renameClock.onchange = renderRenamePreview;
+  renameDate.onchange = renameClock.onchange = renameOverride.onchange =
+    renameSequence.onchange = renameFilter.onchange = renderRenamePreview;
+  renameOffset.oninput = renderRenamePreview;
 
-  renameFiles.onchange = renameSource.onchange = async () => {
+  renameFiles.onchange = () => scanRenameFiles(false);
+  renameSource.onchange = () => scanRenameFiles(true);
+
+  async function scanRenameFiles(preserve) {
+    const previous = preserve ? new Map(scannedFiles.map((entry) => [entry.file, entry])) : new Map();
     const current = ++scan;
     const files = [...renameFiles.files];
     scannedFiles = [];
@@ -178,9 +266,9 @@
     try {
       const results = [];
       for (const file of files) {
-        const time = renameSource.value === 'custom' ? {} : await fileTime(file, renameSource.value);
+        const time = await fileTime(file, renameSource.value);
         if (current !== scan) return;
-        results.push({ file, ...time });
+        results.push({ ...previous.get(file), file, ...time });
       }
       scannedFiles = results;
       const count = results.filter(({ source }) => source === 'EXIF 拍攝時間').length;
@@ -191,11 +279,11 @@
     } catch (error) {
       if (current === scan) renameStatus.textContent = error.message;
     }
-  };
+  }
 
   renameExport.onclick = async () => {
     const plan = exportPlan;
-    const controls = [renameFiles, renameFormat, renameName, renameDate, renameClock, renameSource, customDate, customTime, renameExport];
+    const controls = [renameFiles, ...presetControls, renameFilter, savePreset, loadPreset, renameExport, ...renamePreview.querySelectorAll('input')];
     const previous = controls.map((control) => control.disabled);
     controls.forEach((control) => { control.disabled = true; });
     renameStatus.textContent = '正在建立 ZIP…';
@@ -221,22 +309,56 @@
   const videoFile = byId('video-file');
   const videoMode = byId('video-mode');
   const videoStart = byId('video-start');
+  const videoResume = byId('video-resume');
+  const videoRetry = byId('video-retry');
   const videoCancel = byId('video-cancel');
   const videoZip = byId('video-zip');
+  const videoClear = byId('video-clear');
   const videoStatus = byId('video-status');
   const videoQueue = byId('video-queue');
   const videoOutputLimit = 256 * mib;
   let batch;
+  let queue = [];
   let results = [];
+  let pending;
+  let volume = 1;
+  let zipping = false;
+  let videoStarted = false;
 
-  function clearVideoResults() {
-    for (const result of results) URL.revokeObjectURL(result.url);
-    results = [];
-    videoQueue.replaceChildren();
-    videoZip.hidden = true;
+  function updateVideoControls() {
+    const busy = Boolean(batch || zipping);
+    const count = videoFile.files.length;
+    videoFile.disabled = videoMode.disabled = busy;
+    videoStart.disabled = busy || !count || count > 20;
+    videoCancel.hidden = !batch;
+    videoStart.hidden = videoStarted;
+    videoResume.hidden = !videoStarted || !queue.some((item) => item.state === 'waiting');
+    videoRetry.hidden = !queue.some((item) => item.state === 'failed');
+    videoResume.disabled = videoRetry.disabled = busy || Boolean(pending && results.length) ||
+      results.reduce((total, { blob }) => total + blob.size, 0) >= videoOutputLimit;
+    videoZip.hidden = videoClear.hidden = !results.length;
+    videoZip.disabled = busy || results.some((result) => result.blob.size > videoOutputLimit);
+    videoClear.disabled = busy;
   }
 
-  function makeVideoRow(file) {
+  function clearVideoResults() {
+    for (const { url, link } of results) {
+      URL.revokeObjectURL(url);
+      link.remove();
+    }
+    results = [];
+  }
+
+  function resetQueue() {
+    clearVideoResults();
+    queue = [];
+    pending = undefined;
+    volume = 1;
+    videoStarted = false;
+    videoQueue.replaceChildren();
+  }
+
+  function makeVideoRow(file, used) {
     const row = document.createElement('li');
     const name = document.createElement('strong');
     const status = document.createElement('span');
@@ -244,48 +366,83 @@
     status.textContent = '等待轉檔';
     row.append(name, status);
     videoQueue.append(row);
-    return { file, row, status };
+    const base = Array.from(safeName(splitName(file.name)[0])).slice(0, 65).join('');
+    return { file, row, status, state: 'waiting', name: uniqueFilename(base, '.mp4', used) };
   }
 
-  async function convertVideo({ file, status }, mode, signal) {
-    const bytes = await file.arrayBuffer();
+  function videoClock(seconds) {
+    const total = Math.floor(seconds);
+    const parts = [Math.floor(total / 60), total % 60];
+    return parts.map((part) => String(part).padStart(2, '0')).join(':');
+  }
+
+  async function convertVideo(item, mode, signal, worker) {
+    const bytes = await item.file.arrayBuffer();
     signal.throwIfAborted();
-    const worker = new Worker(videoWorkerURL);
-    try {
-      return await new Promise((resolve, reject) => {
-        const abort = () => reject(signal.reason);
-        signal.addEventListener('abort', abort, { once: true });
-        const settle = (callback, value) => {
-          signal.removeEventListener('abort', abort);
-          callback(value);
-        };
-        worker.onerror = () => settle(reject, new Error('轉檔引擎中斷。'));
-        worker.onmessage = ({ data }) => {
-          if (data.type === 'stage') status.textContent = data.message;
-          if (data.type === 'done') settle(resolve, data.output);
-          if (data.type === 'error') {
-            const error = new Error(data.message);
-            error.log = data.log;
-            settle(reject, error);
-          }
-        };
-        try {
-          worker.postMessage({ bytes, extension: splitName(file.name)[1], mode }, [bytes]);
-        } catch (error) {
-          settle(reject, error);
+    return await new Promise((resolve, reject) => {
+      const abort = () => settle(reject, signal.reason);
+      const started = performance.now();
+      let message = '正在啟動轉檔…';
+      const show = () => {
+        item.status.textContent = `${message} · 已用 ${videoClock((performance.now() - started) / 1000)}`;
+      };
+      const timer = setInterval(show, 1000);
+      const settle = (callback, value) => {
+        clearInterval(timer);
+        signal.removeEventListener('abort', abort);
+        worker.onmessage = worker.onerror = null;
+        callback(value);
+      };
+      signal.addEventListener('abort', abort, { once: true });
+      worker.onerror = () => {
+        const error = new Error('轉檔引擎中斷。');
+        error.restart = true;
+        settle(reject, error);
+      };
+      worker.onmessage = ({ data }) => {
+        if (data.type === 'stage') message = data.message;
+        if (data.type === 'progress') {
+          message = `已處理片長 ${videoClock(data.seconds)}`;
+          if (data.duration > 0) message += `／約 ${videoClock(data.duration)}`;
         }
-      });
-    } finally {
-      worker.terminate();
-    }
+        if (data.type === 'done') settle(resolve, data.output);
+        else if (data.type === 'error') {
+          const error = new Error(data.message);
+          error.log = data.log;
+          settle(reject, error);
+        } else show();
+      };
+      try {
+        worker.postMessage({ bytes, extension: splitName(item.file.name)[1], mode }, [bytes]);
+      } catch (error) {
+        settle(reject, error);
+      }
+    });
+  }
+
+  function addVideoResult(item, blob) {
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = item.name;
+    link.textContent = '下載 MP4';
+    results.push({ name: item.name, blob, url, link });
+    item.row.append(link);
+    item.state = 'done';
+    item.status.textContent = `已完成 · ${(blob.size / mib).toFixed(2)} MB` +
+      (blob.size > videoOutputLimit ? ' · 請單獨下載' : '');
   }
 
   videoFile.onchange = () => {
-    clearVideoResults();
+    resetQueue();
     const count = videoFile.files.length;
-    videoStart.disabled = !count || count > 20;
+    if (count <= 20) {
+      const used = new Set();
+      queue = [...videoFile.files].map((file) => makeVideoRow(file, used));
+    }
     videoStatus.textContent = count > 20 ? '一次最多處理 20 段影片。'
       : count ? `已選 ${count} 段影片。` : '請選擇影片。';
+    updateVideoControls();
   };
 
   videoCancel.onclick = () => {
@@ -294,53 +451,61 @@
     videoStatus.textContent = '正在取消。已完成的影片可繼續下載。';
   };
 
-  videoStart.onclick = async () => {
-    const files = [...videoFile.files];
-    if (!files.length || files.length > 20 || batch) return;
+  videoClear.onclick = () => {
+    if (!confirm('清除今卷的下載連結？請先下載需要保留的 MP4 或 ZIP。')) return;
     clearVideoResults();
+    volume++;
+    videoStatus.textContent = '已清除今卷。可繼續剩餘影片或重試失敗項目。';
+    updateVideoControls();
+  };
+
+  async function runVideoQueue(state) {
+    if (batch || zipping || !queue.length || (pending && results.length)) return;
+    videoStarted = true;
     batch = new AbortController();
     const { signal } = batch;
-    const queue = files.map(makeVideoRow);
-    const used = new Set();
-    let outputSize = 0;
-    let failures = 0;
-    let storageFull = false;
-    videoFile.disabled = videoMode.disabled = videoStart.disabled = true;
-    videoCancel.hidden = videoCancel.disabled = false;
+    let worker;
+    const mode = videoMode.value;
+    const target = queue.filter((item) => item.state === state);
+    let outputSize = results.reduce((total, { blob }) => total + blob.size, 0);
+    videoCancel.disabled = false;
+    updateVideoControls();
     try {
-      for (const [index, item] of queue.entries()) {
-        if (signal.aborted || storageFull) {
-          item.status.textContent = signal.aborted ? '已取消' : '未處理，請分批再試';
-          continue;
-        }
-        videoStatus.textContent = `正在處理第 ${index + 1}／${queue.length} 段影片…`;
+      for (const [index, item] of target.entries()) {
+        if (signal.aborted || outputSize >= videoOutputLimit) break;
+        item.row.querySelector('details')?.remove();
+        videoStatus.textContent = `本輪第 ${index + 1}／${target.length} 段 · 第 ${volume} 卷`;
         item.status.textContent = '正在讀取影片…';
         try {
-          if (!item.file.size || item.file.size > 128 * mib) throw new Error('影片須大於 0 且不超過 128 MB。');
-          const output = await convertVideo(item, videoMode.value, signal);
-          signal.throwIfAborted();
-          if (outputSize + output.byteLength > videoOutputLimit) {
-            storageFull = true;
-            throw new Error('批次輸出超過 256 MB，請分批或改用壓縮模式。');
+          let blob;
+          if (pending?.item === item) {
+            blob = pending.blob;
+            pending = undefined;
+          } else {
+            if (!item.file.size || item.file.size > 128 * mib) throw new Error('影片須大於 0 且不超過 128 MB。');
+            worker ??= new Worker(videoWorkerURL);
+            const output = await convertVideo(item, mode, signal, worker);
+            signal.throwIfAborted();
+            blob = new Blob([output], { type: 'video/mp4' });
           }
-          const base = Array.from(safeName(splitName(item.file.name)[0])).slice(0, 65).join('');
-          const name = uniqueFilename(base, '.mp4', used);
-          const blob = new Blob([output], { type: 'video/mp4' });
-          const url = URL.createObjectURL(blob);
-          results.push({ name, blob, url });
+          if (outputSize && outputSize + blob.size > videoOutputLimit) {
+            pending = { item, blob };
+            item.state = 'waiting';
+            item.status.textContent = '轉檔完成，等候下一卷';
+            break;
+          }
+          addVideoResult(item, blob);
           outputSize += blob.size;
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = name;
-          link.textContent = '下載 MP4';
-          item.row.append(link);
-          item.status.textContent = `已完成 · ${(blob.size / mib).toFixed(2)} MB`;
         } catch (error) {
           if (signal.aborted) {
-            item.status.textContent = '已取消';
-            continue;
+            item.status.textContent = item.state === 'failed' ? '已取消重試' : '等候繼續';
+            break;
           }
-          failures++;
+          if (error.restart) {
+            worker?.terminate();
+            worker = undefined;
+          }
+          item.state = 'failed';
           item.status.textContent = error.message || '無法處理影片。';
           if (error.log) {
             const details = document.createElement('details');
@@ -354,17 +519,23 @@
         }
       }
     } finally {
-      const outcome = signal.aborted ? '已取消' : storageFull ? '已達批次輸出上限' : '處理結束';
-      videoStatus.textContent = `${outcome}。成功 ${results.length}／${queue.length} 段，失敗 ${failures} 段。`;
-      videoZip.hidden = !results.length;
-      videoFile.disabled = videoMode.disabled = videoStart.disabled = false;
-      videoCancel.hidden = true;
+      worker?.terminate();
+      const count = (state) => queue.filter((item) => item.state === state).length;
+      const paused = pending || (outputSize >= videoOutputLimit && count('waiting') + count('failed'));
+      const outcome = signal.aborted ? '已取消' : paused ? '請下載並清除今卷，再繼續處理' : '處理結束';
+      videoStatus.textContent = `${outcome}。全批成功 ${count('done')}／${queue.length} 段，失敗 ${count('failed')} 段，待處理 ${count('waiting')} 段。`;
       batch = undefined;
+      updateVideoControls();
     }
-  };
+  }
+
+  videoStart.onclick = () => runVideoQueue('waiting');
+  videoResume.onclick = () => runVideoQueue('waiting');
+  videoRetry.onclick = () => runVideoQueue('failed');
 
   videoZip.onclick = async () => {
-    videoFile.disabled = videoStart.disabled = videoZip.disabled = true;
+    zipping = true;
+    updateVideoControls();
     try {
       await loadLibrary(zipWriter);
       const zip = new globalThis.JSZip();
@@ -373,13 +544,14 @@
       const url = URL.createObjectURL(archive);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'converted-videos.zip';
+      link.download = `converted-videos-${String(volume).padStart(2, '0')}.zip`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
       videoStatus.textContent = error.message;
     } finally {
-      videoFile.disabled = videoStart.disabled = videoZip.disabled = false;
+      zipping = false;
+      updateVideoControls();
     }
   };
 })();

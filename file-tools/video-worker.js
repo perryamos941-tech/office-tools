@@ -3,22 +3,43 @@
 const coreURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js';
 const wasmURL = coreURL.replace(/\.js$/, '.wasm');
 const outputName = '/output.mp4';
+let engine;
+
+async function loadEngine() {
+  if (!self.createFFmpegCore) importScripts(coreURL);
+  return self.createFFmpegCore({ mainScriptUrlOrBlob: coreURL + '#' + btoa(JSON.stringify({ wasmURL })) });
+}
+
+function seconds(value) {
+  return value.split(':').reduce((total, part) => total * 60 + Number(part), 0);
+}
 
 self.onmessage = async ({ data }) => {
   const logs = [];
   const stage = (message) => self.postMessage({ type: 'stage', message });
+  let ffmpeg;
+  let duration;
+  let progressAt = -Infinity;
+  const extension = /^\.[a-z0-9]{1,8}$/i.test(data.extension) ? data.extension.toLowerCase() : '';
+  const inputName = '/input' + extension;
   try {
-    stage('正在載入轉檔引擎…');
-    importScripts(coreURL);
-    const ffmpeg = await self.createFFmpegCore({
-      mainScriptUrlOrBlob: coreURL + '#' + btoa(JSON.stringify({ wasmURL }))
-    });
+    if (!engine) {
+      stage('正在載入轉檔引擎…');
+      engine = await loadEngine();
+    }
+    ffmpeg = engine;
     ffmpeg.setLogger(({ message }) => {
       logs.push(message);
       if (logs.length > 32) logs.shift();
+      const length = /Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/.exec(message);
+      if (length) duration = seconds(length[1]);
+      const time = /\btime=\s*(\d+:\d+:\d+(?:\.\d+)?)/.exec(message);
+      const now = performance.now();
+      if (time && now - progressAt >= 300) {
+        progressAt = now;
+        self.postMessage({ type: 'progress', seconds: seconds(time[1]), duration });
+      }
     });
-    const extension = /^\.[a-z0-9]{1,8}$/i.test(data.extension) ? data.extension.toLowerCase() : '';
-    const inputName = '/input' + extension;
     ffmpeg.FS.writeFile(inputName, new Uint8Array(data.bytes), { canOwn: true });
     const compress = data.mode === 'compress';
     const [maxWidth, maxHeight] = compress ? [1280, 720] : [1920, 1080];
@@ -44,5 +65,12 @@ self.onmessage = async ({ data }) => {
   } catch (error) {
     const message = logs.length ? error.message : '無法啟動轉檔。請檢查網絡及瀏覽器後重試。';
     self.postMessage({ type: 'error', message, log: [...logs, error.message].join('\n') });
+  } finally {
+    if (ffmpeg) {
+      for (const path of [inputName, outputName]) {
+        if (ffmpeg.FS.analyzePath(path).exists) ffmpeg.FS.unlink(path);
+      }
+      ffmpeg.reset();
+    }
   }
 };

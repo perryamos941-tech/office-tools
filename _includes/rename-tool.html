@@ -40,13 +40,30 @@
       </select>
     </label>
   </div>
+  <div class="fields">
+    <label>時間偏移（分鐘，先於覆蓋套用）
+      <input type="number" id="rename-offset" step="1" min="-525600" max="525600" value="0">
+    </label>
+    <label>全批覆蓋
+      <select id="rename-override"><option value="none">保留所選時間</option><option value="date">只改日期</option><option value="clock">只改鐘點</option></select>
+    </label>
+    <label>流水號
+      <select id="rename-sequence"><option value="none">不加</option><option value="selection">按選檔次序</option><option value="name">按原檔名排序</option></select>
+    </label>
+  </div>
   <div class="fields" id="rename-custom" hidden>
     <label>自訂日期 <input type="date" id="rename-custom-date"></label>
     <label>自訂時間 <input type="time" id="rename-custom-time" step="1" value="00:00:00"></label>
   </div>
+  <div class="actions">
+    <button type="button" id="rename-save-preset">儲存命名預設</button>
+    <button type="button" id="rename-load-preset">套用已儲存預設</button>
+  </div>
+  <label><span><input type="checkbox" id="rename-filter"> 只顯示原先用修改時間的檔案</span></label>
+  <p class="detail">篩選只影響畫面。取消勾選「匯出」可排除檔案。逐檔指定時間會覆蓋批次設定。</p>
   <p id="rename-status" role="status">選檔後可預覽新檔名。</p>
   <div id="rename-results" class="table-scroll" tabindex="0" aria-label="改名預覽" hidden>
-    <table><thead><tr><th scope="col">原檔名</th><th scope="col">新檔名</th><th scope="col">時間來源</th></tr></thead>
+    <table><thead><tr><th scope="col">匯出</th><th scope="col">原檔名</th><th scope="col">新檔名</th><th scope="col">採用時間</th><th scope="col">時間來源</th><th scope="col">逐檔指定時間</th></tr></thead>
     <tbody id="rename-preview"></tbody></table>
   </div>
   <button id="rename-export" disabled>下載已改名 ZIP</button>

@@ -1,5 +1,5 @@
 <h2 id="video-title">影片轉檔及壓縮</h2>
-  <p>可同時選擇多段 DAV、MP4、MOV、MKV、AVI 或 WebM，輸出 MP4。建議在電腦使用，一次最多 20 段，每段上限 128 MB，批次輸出上限 256 MB。</p>
+  <p>可同時選擇多段 DAV、MP4、MOV、MKV、AVI 或 WebM，輸出 MP4。建議在電腦使用，一次最多 20 段，每段上限 128 MB，每卷輸出上限 256 MB。</p>
   <label>選擇影片 <input type="file" id="video-file" multiple accept=".dav,.mp4,.mov,.mkv,.avi,.webm,video/*"></label>
   <label>處理方式
     <select id="video-mode">
@@ -10,8 +10,11 @@
   <p class="detail">兩個模式均輸出 H.264／AAC MP4，最高 30 fps。壓縮後大小視乎原片。首次使用需下載約 31 MB 的轉檔引擎。</p>
   <div class="actions">
     <button id="video-start" disabled>開始處理</button>
+    <button id="video-resume" hidden>繼續剩餘影片</button>
+    <button id="video-retry" hidden>只重試失敗項目</button>
     <button id="video-cancel" hidden>取消</button>
-    <button id="video-zip" hidden>下載成功影片 ZIP</button>
+    <button id="video-zip" hidden>下載今卷 ZIP</button>
+    <button id="video-clear" hidden>清除今卷輸出</button>
   </div>
-  <p id="video-status" role="status">請選擇影片。網站會逐段轉檔，已完成的影片可逐段下載。</p>
+  <p id="video-status" role="status">請選擇影片。網站會逐段轉檔，已完成的影片可逐段下載。輸出滿一卷時，可先下載並清除該卷，再繼續。</p>
   <ul id="video-queue" aria-label="轉檔清單"></ul>
