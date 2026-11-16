@@ -31,3 +31,24 @@ commit. In particular, an upstream advisory may cover network or hardware
 interfaces that are unavailable in this WebAssembly build. Application controls
 reduce reachability or impact and should be evaluated separately from upstream
 patch status.
+
+## FFmpeg advisory review (2026-11-16)
+
+[Audit 43845183628](https://github.com/perryamos941-tech/office-tools/actions/runs/43845183628)
+verified all four CDN asset digests. OSV reported these eleven findings for the
+FFmpeg 9.0.2 source commit. The OSV job remains red while the source findings
+are reported. The review below is scoped to the website's WASM build and
+processing paths.
+
+| OSV findings | Website-specific status |
+| --- | --- |
+| CVE-2026-107675, CVE-2026-107696 | SFTP and RTSP networking paths are unavailable in the offline WASM build. The site allows only the virtual file protocol. |
+| CVE-2026-125202, CVE-2026-125219, CVE-2026-125237, CVE-2026-125239, CVE-2026-125248, CVE-2026-125249 | The affected VAAPI, VDPAU, DXVA and Vulkan acceleration or encoding paths are unavailable in this WASM build. The core reports an empty hardware acceleration list and the site uses software H.264 encoding. |
+| CVE-2026-107677 | The DASH demuxer is excluded by the application's input allowlist for both probing and transcoding. |
+| CVE-2026-107676 | Open for this build. The worker filters dynamic HDR10+ frame side data before encoding. This does not establish that every parsing or serialization path is covered. An [upstream fix](https://code.ffmpeg.org/FFmpeg/FFmpeg/commit/2c2f6e96e31795ae95a8f8323a493ffbc493111f) is referenced by [NVD](https://nvd.nist.gov/vuln/detail/CVE-2026-107676). |
+| CVE-2026-107678 | Open for this build. The worker rejects detected encrypted ISO BMFF headers before passing input to FFmpeg. A watchdog terminates stalled workers, limiting the impact if a parsing error is encountered. See [NVD](https://nvd.nist.gov/vuln/detail/CVE-2026-107678). |
+
+At the time of review the registry's latest Project516 single-thread core was
+0.18.0. Reassess both open findings when a verifiable replacement build is
+available. Test DAV and MP4 input, fixed and rolling timestamps, and H.264/AAC
+output before adopting a replacement.
