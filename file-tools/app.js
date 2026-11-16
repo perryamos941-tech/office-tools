@@ -2,7 +2,7 @@
   'use strict';
 
   const byId = (id) => document.getElementById(id);
-  const videoWorkerURL = new URL('video-worker.js?v=4.16', document.currentScript.src);
+  const videoWorkerURL = new URL('video-worker.js?v=4.17', document.currentScript.src);
   const mib = 1024 * 1024;
   const scripts = new Map();
 
@@ -316,6 +316,16 @@
   const videoClear = byId('video-clear');
   const videoStatus = byId('video-status');
   const videoQueue = byId('video-queue');
+  const stampMode = byId('video-stamp-mode');
+  const stampOptions = byId('video-stamp-options');
+  const stampZone = byId('video-stamp-zone');
+  const stampPosition = byId('video-stamp-position');
+  const stampPreview = byId('video-stamp-preview');
+  const stampPlayer = byId('video-stamp-player');
+  const stampOverlay = byId('video-stamp-overlay');
+  const stampCaption = byId('video-stamp-caption');
+  let previewItem;
+  let previewURL;
   const videoOutputLimit = 256 * mib;
   let batch;
   let queue = [];
@@ -325,10 +335,143 @@
   let zipping = false;
   let videoStarted = false;
 
+  function stampISO(seconds) {
+    return new Date(seconds * 1000).toISOString().slice(0, 19);
+  }
+
+  function parseStamp(value) {
+    value = value.replace(/\.0+$/, '');
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value)) return null;
+    const full = value.length === 16 ? value + ':00' : value;
+    const wall = Date.parse(full + 'Z') / 1000;
+    return Number.isFinite(wall) && stampISO(wall) === full ? wall : null;
+  }
+
+  function filenameStamp(name) {
+    const match = /(?:^|[^0-9])(\d{4})(\d{2})(\d{2})[_ -](\d{2})(\d{2})(\d{2})(?=\D|$)/.exec(name);
+    if (!match) return '';
+    const value = match.slice(1, 4).join('-') + 'T' + match.slice(4).join(':');
+    return parseStamp(value) === null ? '' : value;
+  }
+
+  // Read the ISO BMFF movie header using bounded slices, including moov-at-end files.
+  async function movieCreationTime(file) {
+    async function locate(start, end, type) {
+      for (let index = 0; index < 4096 && start + 8 <= end; index++) {
+        const data = new DataView(await file.slice(start, Math.min(end, start + 16)).arrayBuffer());
+        const kind = String.fromCharCode(...new Uint8Array(data.buffer, 4, 4));
+        let size = data.getUint32(0);
+        let header = 8;
+        if (size === 1) {
+          if (data.byteLength < 16) return null;
+          size = Number(data.getBigUint64(8));
+          header = 16;
+        } else if (size === 0) size = end - start;
+        if (!Number.isSafeInteger(size) || size < header || size > end - start) return null;
+        if (kind === type) return [start + header, start + size];
+        start += size;
+      }
+      return null;
+    }
+    if (!/\.(mp4|mov|m4v|3gp)$/i.test(file.name)) return null;
+    const moov = await locate(0, file.size, 'moov');
+    const mvhd = moov && await locate(...moov, 'mvhd');
+    if (!mvhd || mvhd[1] - mvhd[0] < 8) return null;
+    const data = new DataView(await file.slice(mvhd[0], Math.min(mvhd[0] + 12, mvhd[1])).arrayBuffer());
+    const version = data.getUint8(0);
+    const created = version === 0 ? data.getUint32(4)
+      : version === 1 && data.byteLength >= 12 ? Number(data.getBigUint64(4)) : 0;
+    const unix = created - 2082844800;
+    return Number.isSafeInteger(unix) && unix >= 0 && unix < 253402214400 ? unix : null;
+  }
+
+  function showStampSource(item) {
+    const offset = Number(stampZone.value);
+    const internal = item.created === null ? '' : stampISO(item.created + offset * 3600);
+    if (!item.manual) item.time.value = internal || item.filenameTime;
+    let description = internal ? 'MP4／MOV 內嵌建立時間' : item.filenameTime ? '原始檔名' : '未找到時間，請填寫';
+    if (internal && item.filenameTime) {
+      description += Math.abs(parseStamp(internal) - parseStamp(item.filenameTime)) <= 2
+        ? ' · 與檔名一致' : ' · 與檔名 ' + item.filenameTime.replace('T', ' ') + ' 不同，請核對';
+    }
+    item.source.textContent = item.manual ? '手動設定 · 自動建議：' + description : description;
+  }
+
+  function getStamp(item) {
+    return {
+      mode: stampMode.value, position: stampPosition.value, offset: Number(stampZone.value),
+      wall: parseStamp(item.time.value)
+    };
+  }
+
+  function showStampPreview() {
+    if (!previewItem || stampMode.value === 'off') {
+      stampPreview.hidden = true;
+      return;
+    }
+    const stamp = getStamp(previewItem);
+    stampOverlay.dataset.position = stamp.position;
+    stampOverlay.textContent = stamp.wall === null ? '請先填寫日期及時間'
+      : stampISO(stamp.wall).replace('T', ' ') + ' UTC+' + String(stamp.offset).padStart(2, '0') + ':00';
+    stampCaption.textContent = '位置示意 · ' + previewItem.file.name;
+    stampPreview.hidden = false;
+  }
+
+  function closeStampPreview() {
+    if (previewURL) URL.revokeObjectURL(previewURL);
+    previewURL = undefined;
+    previewItem = undefined;
+    stampPlayer.removeAttribute('src');
+    stampPlayer.parentElement.style.aspectRatio = '';
+    stampPreview.hidden = true;
+  }
+
+  async function readStampSources(item) {
+    if (item.scanning) return;
+    item.scanning = true;
+    item.source.textContent = '正在讀取影片時間…';
+    try { item.created = await movieCreationTime(item.file); }
+    catch { item.created = null; }
+    item.scanning = false;
+    item.scanned = true;
+    if (queue.includes(item)) {
+      showStampSource(item);
+      showStampPreview();
+    }
+  }
+
+  function updateStampControls() {
+    const enabled = stampMode.value !== 'off';
+    stampOptions.hidden = !enabled;
+    for (const item of queue) {
+      item.stampFields.hidden = !enabled;
+      if (enabled && !item.scanned) readStampSources(item);
+    }
+    showStampPreview();
+  }
+
+  stampPlayer.onloadedmetadata = () => {
+    if (stampPlayer.videoWidth && stampPlayer.videoHeight) {
+      stampPlayer.parentElement.style.aspectRatio = `${stampPlayer.videoWidth} / ${stampPlayer.videoHeight}`;
+    }
+  };
+  stampMode.onchange = updateStampControls;
+  stampPosition.onchange = showStampPreview;
+  stampZone.onchange = () => {
+    for (const item of queue) {
+      item.checked.checked = false;
+      if (item.scanned) showStampSource(item);
+    }
+    showStampPreview();
+  };
+
   function updateVideoControls() {
     const busy = Boolean(batch || zipping);
     const count = videoFile.files.length;
-    videoFile.disabled = videoMode.disabled = busy;
+    videoFile.disabled = videoMode.disabled = stampMode.disabled = stampZone.disabled = stampPosition.disabled = busy;
+    for (const item of queue) {
+      item.time.disabled = item.checked.disabled = busy || item.state === 'done' || pending?.item === item;
+    }
     videoStart.disabled = busy || !count || count > 20;
     videoCancel.hidden = !batch;
     videoStart.hidden = videoStarted;
@@ -350,6 +493,7 @@
   }
 
   function resetQueue() {
+    closeStampPreview();
     clearVideoResults();
     queue = [];
     pending = undefined;
@@ -367,7 +511,48 @@
     row.append(name, status);
     videoQueue.append(row);
     const base = Array.from(safeName(splitName(file.name)[0])).slice(0, 65).join('');
-    return { file, row, status, state: 'waiting', name: uniqueFilename(base, '.mp4', used) };
+    const stampFields = document.createElement('div');
+    stampFields.className = 'stamp-settings';
+    stampFields.hidden = true;
+    const dateLabel = document.createElement('label');
+    dateLabel.textContent = '拍攝日期時間';
+    const time = document.createElement('input');
+    time.type = 'datetime-local';
+    time.step = '1';
+    dateLabel.append(time);
+    const source = document.createElement('small');
+    const confirmLabel = document.createElement('label');
+    const caption = document.createElement('span');
+    const checked = document.createElement('input');
+    checked.type = 'checkbox';
+    caption.append(checked, ' 已核對拍攝時間');
+    confirmLabel.append(caption);
+    const preview = document.createElement('button');
+    preview.type = 'button';
+    preview.textContent = '預覽位置';
+    stampFields.append(dateLabel, source, confirmLabel, preview);
+    row.append(stampFields);
+    const item = { file, row, status, state: 'waiting', name: uniqueFilename(base, '.mp4', used),
+      stampFields, time, checked, source, created: null, filenameTime: filenameStamp(file.name) };
+    time.oninput = () => {
+      item.manual = true;
+      checked.checked = false;
+      showStampSource(item);
+      showStampPreview();
+    };
+    preview.onclick = () => {
+      if (previewItem !== item) {
+        closeStampPreview();
+        previewItem = item;
+        if (/\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
+          previewURL = URL.createObjectURL(file);
+          stampPlayer.src = previewURL;
+        }
+      }
+      showStampPreview();
+      stampPreview.scrollIntoView({ block: 'nearest' });
+    };
+    return item;
   }
 
   function videoClock(seconds) {
@@ -376,7 +561,7 @@
     return parts.map((part) => String(part).padStart(2, '0')).join(':');
   }
 
-  async function convertVideo(item, mode, signal, worker) {
+  async function convertVideo(item, mode, signal, worker, stamp) {
     const bytes = await item.file.arrayBuffer();
     signal.throwIfAborted();
     return await new Promise((resolve, reject) => {
@@ -413,7 +598,7 @@
         } else show();
       };
       try {
-        worker.postMessage({ bytes, extension: splitName(item.file.name)[1], mode }, [bytes]);
+        worker.postMessage({ bytes, extension: splitName(item.file.name)[1], mode, stamp }, [bytes]);
       } catch (error) {
         settle(reject, error);
       }
@@ -442,6 +627,7 @@
     }
     videoStatus.textContent = count > 20 ? '一次最多處理 20 段影片。'
       : count ? `已選 ${count} 段影片。` : '請選擇影片。';
+    updateStampControls();
     updateVideoControls();
   };
 
@@ -461,12 +647,20 @@
 
   async function runVideoQueue(state) {
     if (batch || zipping || !queue.length || (pending && results.length)) return;
+    const target = queue.filter((item) => item.state === state);
+    const stamping = stampMode.value !== 'off';
+    const unconfirmed = stamping && target.find((item) =>
+      pending?.item !== item && (item.scanning || getStamp(item).wall === null || !item.checked.checked));
+    if (unconfirmed) {
+      videoStatus.textContent = '請先填寫及核對拍攝時間：' + unconfirmed.file.name;
+      (getStamp(unconfirmed).wall === null ? unconfirmed.time : unconfirmed.checked).focus();
+      return;
+    }
     videoStarted = true;
     batch = new AbortController();
     const { signal } = batch;
     let worker;
     const mode = videoMode.value;
-    const target = queue.filter((item) => item.state === state);
     let outputSize = results.reduce((total, { blob }) => total + blob.size, 0);
     videoCancel.disabled = false;
     updateVideoControls();
@@ -484,7 +678,7 @@
           } else {
             if (!item.file.size || item.file.size > 128 * mib) throw new Error('影片須大於 0 且不超過 128 MB。');
             worker ??= new Worker(videoWorkerURL);
-            const output = await convertVideo(item, mode, signal, worker);
+            const output = await convertVideo(item, mode, signal, worker, stamping ? getStamp(item) : undefined);
             signal.throwIfAborted();
             blob = new Blob([output], { type: 'video/mp4' });
           }

@@ -45,3 +45,14 @@ header .tabs button { flex: 0 0 auto; }
 #video-queue li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .85rem; padding: .65rem 0; border-bottom: 1px solid #dbe3ef; overflow-wrap: anywhere; }
 #video-queue li strong, #video-queue li details { flex-basis: 100%; min-width: 0; }
 #video-queue a { color: #194ab2; text-decoration: underline; }
+
+.stamp-preview { margin: 1rem 0; max-width: 36rem; }
+.stamp-frame { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; background: #182335; }
+.stamp-frame video { display: block; width: 100%; height: 100%; position: absolute; object-fit: contain; }
+.stamp-frame span { position: absolute; margin: .65rem; padding: .2rem .4rem; color: #fff; background: #000b; font: clamp(.65rem, 2vw, .95rem) monospace; }
+.stamp-frame span[data-position^="top"] { top: 0; }
+.stamp-frame span[data-position^="bottom"] { bottom: 0; }
+.stamp-frame span[data-position$="left"] { left: 0; }
+.stamp-frame span[data-position$="right"] { right: 0; }
+#video-queue .stamp-settings { flex-basis: 100%; }
+#video-queue .stamp-settings label { margin-block: .3rem; }

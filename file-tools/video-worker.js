@@ -3,6 +3,9 @@
 const coreURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js';
 const wasmURL = coreURL.replace(/\.js$/, '.wasm');
 const outputName = '/output.mp4';
+const fontPath = '/stamp-font.ttf';
+const stampPath = '/stamp.txt';
+let fontLoaded = false;
 let engine;
 
 async function loadEngine() {
@@ -12,6 +15,27 @@ async function loadEngine() {
 
 function seconds(value) {
   return value.split(':').reduce((total, part) => total * 60 + Number(part), 0);
+}
+
+async function stampFilter(ffmpeg, stamp) {
+  if (!fontLoaded) {
+    const url = new URL('stamp-font.ttf', self.location.href);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('無法載入日期時間字型，請重試。');
+    ffmpeg.FS.writeFile(fontPath, new Uint8Array(await response.arrayBuffer()));
+    fontLoaded = true;
+  }
+  const { position, mode, wall, offset } = stamp;
+  const date = new Date(wall * 1000).toISOString().slice(0, 19).replace('T', ' ');
+  const zone = ' UTC+' + String(offset).padStart(2, '0') + ':00';
+  const rolling = mode === 'clock';
+  const text = rolling ? `%{pts:gmtime:${wall}:%Y-%m-%d %H\\:%M\\:%S}${zone}` : date + zone;
+  ffmpeg.FS.writeFile(stampPath, new TextEncoder().encode(text));
+  const x = position.endsWith('left') ? 'max(12,w*0.025)' : 'w-tw-max(12,w*0.025)';
+  const y = position.startsWith('top') ? 'max(10,h*0.035)' : 'h-th-max(10,h*0.035)';
+  return `drawtext=fontfile=${fontPath}:textfile=${stampPath}:` +
+    `expansion=${rolling ? 'normal' : 'none'}:x='${x}':y='${y}':fontsize='max(10,min(w/27,h/21))':` +
+    'fontcolor=white:box=1:boxcolor=black@0.70:boxborderw=3';
 }
 
 self.onmessage = async ({ data }) => {
@@ -40,15 +64,16 @@ self.onmessage = async ({ data }) => {
         self.postMessage({ type: 'progress', seconds: seconds(time[1]), duration });
       }
     });
-    ffmpeg.FS.writeFile(inputName, new Uint8Array(data.bytes), { canOwn: true });
     const compress = data.mode === 'compress';
     const [maxWidth, maxHeight] = compress ? [1280, 720] : [1920, 1080];
     // Fit within the selected bounds, preserving aspect ratio and even dimensions.
     const fit = `scale=w='min(iw,${maxWidth})':h='min(ih,${maxHeight})':force_original_aspect_ratio=decrease:force_divisible_by=2`;
+    const filter = data.stamp ? fit + ',' + await stampFilter(ffmpeg, data.stamp) : fit;
+    ffmpeg.FS.writeFile(inputName, new Uint8Array(data.bytes), { canOwn: true });
     stage('正在製作 Windows 相容 MP4…');
     const code = ffmpeg.exec(
       '-fflags', '+genpts', '-i', inputName, '-map', '0:v:0', '-map', '0:a:0?',
-      '-vf', fit, '-fpsmax', '30', '-fps_mode', 'cfr', '-c:v', 'libx264',
+      '-vf', filter, '-fpsmax', '30', '-fps_mode', 'cfr', '-c:v', 'libx264',
       '-pix_fmt', 'yuv420p', '-profile:v', 'main', '-level:v', '4.1', '-tag:v', 'avc1',
       '-preset', 'veryfast', '-crf', compress ? '28' : '20',
       '-maxrate', '12M', '-bufsize', '24M',
@@ -67,7 +92,7 @@ self.onmessage = async ({ data }) => {
     self.postMessage({ type: 'error', message, log: [...logs, error.message].join('\n') });
   } finally {
     if (ffmpeg) {
-      for (const path of [inputName, outputName]) {
+      for (const path of [inputName, outputName, stampPath]) {
         if (ffmpeg.FS.analyzePath(path).exists) ffmpeg.FS.unlink(path);
       }
       ffmpeg.reset();

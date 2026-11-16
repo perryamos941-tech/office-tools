@@ -8,6 +8,34 @@
     </select>
   </label>
   <p class="detail">兩個模式均輸出 H.264／AAC MP4，最高 30 fps。壓縮後大小視乎原片。首次使用需下載約 31 MB 的轉檔引擎。</p>
+  <label>巡查日期時間
+    <select id="video-stamp-mode">
+      <option value="off">不加日期時間</option>
+      <option value="fixed">固定顯示拍攝日期時間</option>
+      <option value="clock">逐秒更新</option>
+    </select>
+  </label>
+  <div id="video-stamp-options" hidden>
+    <div class="fields">
+      <label>顯示時區
+        <select id="video-stamp-zone">
+          <option value="8">香港（UTC+08:00）</option>
+          <option value="9">日本（UTC+09:00）</option>
+          <option value="0">UTC（UTC+00:00）</option>
+        </select>
+      </label>
+      <label>顯示位置
+        <select id="video-stamp-position">
+          <option value="top-right">右上角</option>
+          <option value="top-left">左上角</option>
+          <option value="bottom-right">右下角</option>
+          <option value="bottom-left">左下角</option>
+        </select>
+      </label>
+    </div>
+    <p class="detail">請對照相簿確認每段影片的時間。檔名及手動輸入按所選時區理解，檔案修改時間不作推算。</p>
+  </div>
+  <p class="detail">影片、拍攝時間及輸出全程在此裝置處理。首次操作只下載轉檔元件。</p>
   <div class="actions">
     <button id="video-start" disabled>開始處理</button>
     <button id="video-resume" hidden>繼續剩餘影片</button>
@@ -17,4 +45,11 @@
     <button id="video-clear" hidden>清除今卷輸出</button>
   </div>
   <p id="video-status" role="status">請選擇影片。網站會逐段轉檔，已完成的影片可逐段下載。輸出滿一卷時，可先下載並清除該卷，再繼續。</p>
+  <figure id="video-stamp-preview" class="stamp-preview" hidden>
+    <div class="stamp-frame">
+      <video id="video-stamp-player" preload="metadata" muted playsinline></video>
+      <span id="video-stamp-overlay"></span>
+    </div>
+    <figcaption id="video-stamp-caption">示意預覽</figcaption>
+  </figure>
   <ul id="video-queue" aria-label="轉檔清單"></ul>
