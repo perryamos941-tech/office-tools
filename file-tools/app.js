@@ -640,7 +640,7 @@
   let verifiedAssets;
 
   async function downloadVideoAssets() {
-    const manifestResponse = await fetch(new URL('core-manifest.json?v=4.23', fileToolsURL));
+    const manifestResponse = await fetch(new URL('core-manifest.json?v=4.24', fileToolsURL));
     if (!manifestResponse.ok) throw new Error('無法載入轉檔元件清單。');
     const { assets } = await manifestResponse.json();
     const core = async ({ url, integrity }) => {
@@ -680,7 +680,7 @@
       frame.hidden = true;
       frame.title = '隔離轉檔引擎';
       frame.setAttribute('sandbox', 'allow-scripts');
-      frame.src = new URL('video-sandbox.html?v=4.23', fileToolsURL).href;
+      frame.src = new URL('video-sandbox.html?v=4.24', fileToolsURL).href;
       const channel = new MessageChannel();
       const api = {
         onmessage: null,

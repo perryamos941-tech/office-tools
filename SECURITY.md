@@ -52,3 +52,9 @@ At the time of review the registry's latest Project516 single-thread core was
 0.18.0. Reassess both open findings when a verifiable replacement build is
 available. Test DAV and MP4 input, fixed and rolling timestamps, and H.264/AAC
 output before adopting a replacement.
+
+## Follow-up (2026-11-23)
+
+[Scheduled audit 45160476818](https://github.com/perryamos941-tech/office-tools/actions/runs/45160476818) passed asset integrity and reported twelve FFmpeg source advisories. The additional finding is CVE-2026-125064 in the G.726 decoder. The worker now inspects stream headers with FFprobe stream discovery disabled before any decoder-based probing or conversion, rejects G.726 streams, repeats the 128 MiB input cap in the isolated worker, and limits individual FFmpeg allocations to 128 MiB.
+
+The [OSV description](https://osv.dev/vulnerability/CVE-2026-125064) describes a 268435392-byte crafted G.726 chunk. These application controls reduce reachability while the upstream core version remains unchanged. All twelve upstream findings remain visible in the audit.

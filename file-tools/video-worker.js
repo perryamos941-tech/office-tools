@@ -55,10 +55,31 @@ function rejectEncryptedBoxes(bytes) {
   scan(0, bytes.length, 0);
 }
 
+// Inspect stream headers without opening decoders, before any normal probe or conversion.
+async function checkAudioCodecs(core, inputName) {
+  const lines = [];
+  core.setLogger(({ message }) => lines.push(message));
+  let result;
+  try {
+    const code = await core.ffprobe('-v', 'error', '-max_alloc', '134217728',
+      ...demuxerLimits, '-nofind_stream_info', '-show_entries', 'stream=codec_name',
+      '-of', 'json', inputName);
+    if (code !== 0) throw new Error('無法安全讀取影片編碼資料。');
+    const text = lines.join('\n');
+    result = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+  } finally { core.reset(); }
+  if (!Array.isArray(result.streams) || !result.streams.length) {
+    throw new Error('無法確認影片編碼，請重新匯出原檔。');
+  }
+  if (result.streams.some(({ codec_name }) => /g726/i.test(codec_name || ''))) {
+    throw new Error('影片使用 G.726 音訊，因安全限制暫停處理，請先從原廠播放器匯出 AAC 音訊的 MP4。');
+  }
+}
+
 async function probeVideo(core, inputName) {
   const lines = [];
   core.setLogger(({ message }) => lines.push(message));
-  const status = await core.ffprobe('-v', 'error', ...demuxerLimits, '-select_streams', 'v:0', '-show_entries',
+  const status = await core.ffprobe('-v', 'error', '-max_alloc', '134217728', ...demuxerLimits, '-select_streams', 'v:0', '-show_entries',
     'format=duration:stream=width,height,duration:stream_side_data=rotation', '-of', 'json', inputName);
   core.reset();
   if (status !== 0) throw new Error('無法讀取影片資料以加上時間戳。');
@@ -155,8 +176,10 @@ self.onmessage = async ({ data }) => {
     const compress = data.mode === 'compress';
     const [maxWidth, maxHeight] = compress ? [1280, 720] : [1920, 1080];
     const input = new Uint8Array(data.bytes);
+    if (!input.length || input.length > 128 * 1024 * 1024) throw new Error('影片須大於 0 且不超過 128 MB。');
     rejectEncryptedBoxes(input);
     ffmpeg.FS.writeFile(inputName, input, { canOwn: true });
+    await checkAudioCodecs(ffmpeg, inputName);
     const stamp = data.stamp ? await stampFilter(ffmpeg, data.stamp, inputName, maxWidth, maxHeight) : '';
     ffmpeg.setLogger(({ message }) => {
       logs.push(message);
@@ -175,7 +198,7 @@ self.onmessage = async ({ data }) => {
     const filter = [fit, 'sidedata=mode=delete:type=DYNAMIC_HDR_PLUS', stamp].filter(Boolean).join(',');
     stage('正在製作 Windows 相容 MP4…');
     const code = await ffmpeg.exec(
-      '-fflags', '+genpts', ...demuxerLimits, '-i', inputName, '-map', '0:v:0', '-map', '0:a:0?',
+      '-max_alloc', '134217728', '-fflags', '+genpts', ...demuxerLimits, '-i', inputName, '-map', '0:v:0', '-map', '0:a:0?',
       '-vf', filter, '-fpsmax', '30', '-fps_mode', 'cfr', '-c:v', 'libx264',
       '-pix_fmt', 'yuv420p', '-profile:v', 'main', '-level:v', '4.1', '-tag:v', 'avc1',
       '-preset', 'veryfast', '-crf', compress ? '28' : '20',

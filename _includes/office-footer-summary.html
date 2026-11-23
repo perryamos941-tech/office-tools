@@ -7,14 +7,14 @@
 <p><a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection">GitHub Pages 資料收集說明</a> · <a href="https://github.com/jsdelivr/jsdelivr/blob/master/Privacy%20Policy.md">jsDelivr 私隱政策</a> · <a href="https://github.com/perryamos941-tech/office-tools/blob/main/LICENSE">專案 MIT 授權</a></p>
 <details>
   <summary>v{{ site.data.office.version }} 更新內容</summary>
-  <p>影片工具使用 FFmpeg 9.0.2，先驗證轉檔元件，再在禁止網絡連線的隔離區處理影片。</p>
+  <p>影片工具使用 FFmpeg 9.0.2，先驗證轉檔元件，再在禁止網絡連線的隔離區處理影片。新增解碼前 G.726 檢查及記憶體限制。</p>
 </details>
 <details class="office-tool-notes">
-  <summary>資安檢查狀態（2026-11-16）</summary>
-  <p>最近一次檢查中，四個 CDN 元件的 SHA-384 雜湊全部通過。OSV 仍對影片工具使用的 FFmpeg 9.0.2 原始碼版本列出 11 項上游告警。</p>
+  <summary>資安檢查狀態（2026-11-23）</summary>
+  <p>最近一次檢查中，四個 CDN 元件的 SHA-384 雜湊全部通過。OSV 仍對影片工具使用的 FFmpeg 9.0.2 原始碼版本列出 12 項上游告警。</p>
   <ul>
     <li>8 項涉及此瀏覽器建置未提供的網絡功能或硬件加速。另有 1 項涉及影片工具不允許載入的 DASH 格式。</li>
-    <li>其餘 2 項涉及影片檔案解析和 HDR10+ 資料。工具已加入輸入限制、移除輸出前的動態 HDR10+ 資料，並在無網絡連線的隔離區轉檔。這兩項仍待經驗證的上游核心更新。</li>
+    <li>其餘 2 項涉及影片檔案解析和 HDR10+ 資料。工具已加入輸入限制、移除輸出前的動態 HDR10+ 資料，並在無網絡連線的隔離區轉檔。這兩項仍待經驗證的上游核心更新。另有 G.726 音訊解碼告警，工具現於解碼前檢查並拒絕含 G.726 音訊的影片。</li>
   </ul>
-  <p><a href="https://github.com/perryamos941-tech/office-tools/actions/runs/43845183628">檢查結果</a> · <a href="https://github.com/perryamos941-tech/office-tools/blob/main/SECURITY.md#ffmpeg-advisory-review-2026-11-16">逐項核對</a> · <a href="https://github.com/perryamos941-tech/office-tools/actions/workflows/security-audit.yml">後續檢查</a></p>
+  <p><a href="https://github.com/perryamos941-tech/office-tools/actions/runs/45160476818">檢查結果</a> · <a href="https://github.com/perryamos941-tech/office-tools/blob/main/SECURITY.md#ffmpeg-advisory-review-2026-11-16">逐項核對</a> · <a href="https://github.com/perryamos941-tech/office-tools/actions/workflows/security-audit.yml">後續檢查</a></p>
 </details>
